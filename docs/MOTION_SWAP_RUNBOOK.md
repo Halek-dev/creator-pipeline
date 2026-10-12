@@ -26,10 +26,12 @@ Pod settings: **at least 32 GB system RAM**, **80 GB disk**, expose **HTTP port 
 In the pod's terminal:
 
 ```bash
-git clone <our repo url> creator-pipeline && cd creator-pipeline
+git clone https://github.com/Halek-dev/creator-pipeline.git && cd creator-pipeline
 bash scripts/setup.sh wan-animate-2
 bash scripts/start.sh
 ```
+
+The repo is private, so the pod needs a GitHub login first. Easiest: make a fine-grained personal access token with read access to this repo (GitHub → Settings → Developer settings) and clone with `git clone https://<token>@github.com/Halek-dev/creator-pipeline.git`. Or run `gh auth login` on the pod if `gh` is installed.
 
 `setup.sh wan-animate-2` installs ComfyUI, links our node pack, and downloads the four model files plus the sample reference image and driving video into `ComfyUI/input`.
 

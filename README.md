@@ -48,7 +48,7 @@ Outputs land in `ComfyUI\output`. Each batch writes a log to `batch_runs\`.
 ## Run it on a rented GPU (RunPod, Vast.ai, Colab, Kaggle)
 
 ```bash
-git clone <this repo> creator-pipeline && cd creator-pipeline
+git clone https://github.com/Halek-dev/creator-pipeline.git && cd creator-pipeline
 bash scripts/setup.sh z-image-turbo
 bash scripts/start.sh
 ```
