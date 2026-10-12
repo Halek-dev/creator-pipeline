@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 *.safetensors
 *.part
+comfy.log
