@@ -82,6 +82,12 @@ def main():
         dest_dir.mkdir(parents=True, exist_ok=True)
         download(f["url"], dest_dir / f["url"].rsplit("/", 1)[-1], headers)
 
+    # Sample reference images / driving videos go into ComfyUI/input so the test workflows run as-is.
+    input_dir = Path(args.comfy) / "input"
+    input_dir.mkdir(parents=True, exist_ok=True)
+    for url in profiles[args.profile].get("inputs", []):
+        download(url, input_dir / url.rsplit("/", 1)[-1], headers)
+
 
 if __name__ == "__main__":
     main()

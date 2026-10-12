@@ -55,6 +55,16 @@ bash scripts/start.sh
 
 Model profiles: `python tools/download_models.py --list`.
 
+## Motion swap (Wan Animate 2)
+
+Reference image + driving video → the character performing that motion. Needs a 24 GB+ GPU; see [docs/MOTION_SWAP_RUNBOOK.md](docs/MOTION_SWAP_RUNBOOK.md) for the rented-GPU steps.
+
+```bash
+bash scripts/setup.sh wan-animate-2       # models + sample inputs
+.venv/bin/python tools/validate_workflow.py workflows/wan_animate2.json
+.venv/bin/python tools/batch_run.py workflows/wan_animate2.json --count 1
+```
+
 ## Batch runner
 
 Address any input as `"<node title>.<input>"` (titles are the `_meta.title` values in the API workflow).
