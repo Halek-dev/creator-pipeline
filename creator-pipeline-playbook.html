@@ -312,9 +312,24 @@ async def comfy_entrypoint() -&gt; TeamNodesExtension:
   <p>Plan on an NVIDIA GPU with 16 GB VRAM or more (24 GB is comfortable). Without one, rent a GPU on RunPod or Vast.ai for a few dollars a run, or use a hosted trainer such as fal.ai or RunComfy.</p>
 
   <h3>2. Build the dataset</h3>
+  <p><strong>18 images is the sweet spot.</strong> Generate many more than that and cherry-pick. This shot mix comes from INSTARAW's own dataset guide (June 2026 livestream) and matches what community trainers report:</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Shot type</th><th>Count</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Full body</td><td class="num">4–6</td><td>Teaches proportions and posture</td></tr>
+        <tr><td>Medium / three-quarter</td><td class="num">7–8</td><td>The bulk of social content is framed like this</td></tr>
+        <tr><td>Close-up (head and shoulders)</td><td class="num">2–3</td><td>Locks the face</td></tr>
+        <tr><td>Side and angled views</td><td class="num">4–5</td><td>Any angle you don't train, the model invents</td></tr>
+        <tr><td>From behind</td><td class="num">3–4</td><td>Hair, back, walking-away shots</td></tr>
+      </tbody>
+    </table>
+  </div>
   <ol class="steps">
-    <li><strong>15–30 images</strong> of the character. Variety beats volume: different angles, expressions, lighting, outfits and backgrounds.</li>
-    <li>Use sharp images around 1024 px. Crop out other people, watermarks and text.</li>
+    <li><strong>Keep every image at or below 2K</strong> (about 1024–2048 px on the long side). The base models were trained at 1K; 4K sources add artifacts, not detail. Too small is also bad: under 768 px the model never sees enough.</li>
+    <li><strong>Vary the angles, expressions, outfits and backgrounds.</strong> Diversity beats volume. Include at least one unfamiliar angle (high, low) and one outfit change.</li>
+    <li><strong>Decide the lighting look now.</strong> Whatever lighting dominates the dataset carries into every output. Cool, slightly dark, amateur-phone lighting reads as real; bright flat "AI" lighting does not. If you want both, train two LoRAs (one sharp, one dark) and blend them at different strengths later.</li>
+    <li>Crop out other people, watermarks and text. Soft, non-restricting clothing shows body shape better than stiff outfits.</li>
     <li>Pick a <strong>trigger word</strong> that isn't a real word, such as <code>zr4char</code>.</li>
     <li>Put a <code>.txt</code> caption next to each image with the same filename. Start with the trigger, then describe the scene plainly:</li>
   </ol>
