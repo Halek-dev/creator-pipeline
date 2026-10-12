@@ -1,0 +1,33 @@
+{
+  "cpu-test": {
+    "description": "Small fast model for testing the pipeline on a laptop CPU. Low quality, about 5 GB.",
+    "files": [
+      { "url": "https://huggingface.co/stabilityai/sd-turbo/resolve/main/sd_turbo.safetensors", "dir": "checkpoints" }
+    ]
+  },
+  "z-image-turbo": {
+    "description": "Z-Image Turbo for character stills. Needs a GPU with 16 GB+ VRAM. About 17 GB.",
+    "files": [
+      { "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors", "dir": "diffusion_models" },
+      { "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b_fp8_mixed.safetensors", "dir": "text_encoders" },
+      { "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors", "dir": "vae" }
+    ]
+  },
+  "wan22-5b": {
+    "description": "Wan 2.2 5B text/image-to-video. Needs a GPU with 16 GB+ VRAM (24 GB comfortable). About 17 GB.",
+    "files": [
+      { "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors", "dir": "diffusion_models" },
+      { "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors", "dir": "text_encoders" },
+      { "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan2.2_vae.safetensors", "dir": "vae" }
+    ]
+  },
+  "wan22-animate": {
+    "description": "Wan 2.2 Animate 14B for motion swap. Needs a GPU with 24 GB+ VRAM (48 GB comfortable).",
+    "files": [
+      { "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_animate_14B_bf16.safetensors", "dir": "diffusion_models" },
+      { "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors", "dir": "text_encoders" },
+      { "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors", "dir": "vae" },
+      { "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors", "dir": "clip_vision" }
+    ]
+  }
+}

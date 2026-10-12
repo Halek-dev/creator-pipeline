@@ -1,0 +1,395 @@
+<title>Motion Swap Quality Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column with a timecode gutter; sections are "reels" marked by real timecodes. Tables scroll inside their own frame. */
+:root {
+  --bg: #F2F4F6;
+  --surface: #FFFFFF;
+  --ink: #15202B;
+  --muted: #56636F;
+  --line: #D5DCE2;
+  --accent: #0B6E8A;
+  --accent-soft: #DCEEF3;
+  --warn: #9A5B00;
+  --warn-soft: #FBEFD9;
+  --good: #1F7A4D;
+  --good-soft: #DDF1E6;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F151B; --surface: #172029; --ink: #E4EAEF; --muted: #98A6B2; --line: #2A3540;
+    --accent: #5CC3DE; --accent-soft: #15333D; --warn: #E9B25A; --warn-soft: #362A15;
+    --good: #6FCF9C; --good-soft: #15301F; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F151B; --surface: #172029; --ink: #E4EAEF; --muted: #98A6B2; --line: #2A3540;
+  --accent: #5CC3DE; --accent-soft: #15333D; --warn: #E9B25A; --warn-soft: #362A15;
+  --good: #6FCF9C; --good-soft: #15301F; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 20px; padding-block: 48px 72px; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.6rem; font-weight: 700; }
+h3 { font-size: 1.12rem; font-weight: 600; }
+p { margin: 0; max-width: 66ch; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tc { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; }
+.tc b { color: var(--accent); font-weight: 500; }
+section { display: grid; gap: 18px; }
+.head { display: grid; gap: 6px; }
+
+header { display: grid; gap: 18px; border-bottom: 1px solid var(--line); padding-bottom: 32px; }
+.lede { font-size: 1.15rem; color: var(--muted); }
+.lede strong { color: var(--ink); font-weight: 600; }
+
+.callout { background: var(--accent-soft); border-radius: 10px; padding: 18px 20px; display: grid; gap: 8px; }
+.callout.warn { background: var(--warn-soft); }
+.callout .tc { color: var(--accent); }
+.callout.warn .tc { color: var(--warn); }
+
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.job { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.job ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--muted); }
+.job .tools { font-family: var(--mono); font-size: 0.85rem; color: var(--ink); }
+
+.causes { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; border-top: 1px solid var(--line); }
+.causes li { display: grid; grid-template-columns: 9rem 1fr; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.causes .sym { font-weight: 600; }
+.causes p { color: var(--muted); }
+@media (max-width: 560px) { .causes li { grid-template-columns: 1fr; gap: 4px; } }
+
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 0.92rem; }
+th, td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td.name { font-weight: 600; white-space: nowrap; }
+td .sub { display: block; font-weight: 400; color: var(--muted); font-size: 0.82rem; white-space: normal; }
+.pill { display: inline-block; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.mt { background: var(--accent-soft); color: var(--accent); }
+.pill.rp { background: var(--good-soft); color: var(--good); }
+.pill.both { background: var(--warn-soft); color: var(--warn); }
+.num { font-variant-numeric: tabular-nums; }
+
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.checks label { display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: start; cursor: pointer; }
+.checks input { width: 18px; height: 18px; margin-top: 4px; accent-color: var(--accent); }
+.checks span { color: var(--ink); }
+.checks small { display: block; color: var(--muted); font-size: 0.88rem; }
+
+.plan { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; counter-reset: step; }
+.plan li { display: grid; grid-template-columns: 2.4rem 1fr; gap: 12px; counter-increment: step; }
+.plan li::before { content: counter(step); font-family: var(--display); font-weight: 700; font-size: 1.3rem; color: var(--accent); }
+.plan p { color: var(--muted); }
+.plan strong { color: var(--ink); }
+
+.score table { min-width: 640px; }
+.score input[type="number"] { width: 4.2rem; font: inherit; font-variant-numeric: tabular-nums; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.score input[type="text"] { width: 100%; min-width: 7rem; font: inherit; font-weight: 600; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.score tfoot td { font-weight: 600; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.score .best { color: var(--good); }
+.row-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+button { font: inherit; font-size: 0.9rem; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+button:hover { border-color: var(--accent); }
+.note { font-size: 0.85rem; color: var(--muted); }
+
+.sources { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.9rem; color: var(--muted); }
+footer { border-top: 1px solid var(--line); padding-top: 24px; display: grid; gap: 14px; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="tc"><b>00:00:00:00</b> · Team brief · October 2026</div>
+  <h1>Getting better output from motion swap</h1>
+  <p class="lede">Most bad motion swaps come down to <strong>three things</strong>: the tool is built for a different job, the inputs are weak, or the clip is rendered at a preview tier. This page explains which tools fit which job, a checklist for inputs, and a one-day test so the team can pick a tool on our own footage.</p>
+</header>
+
+<section id="jobs">
+  <div class="head">
+    <div class="tc"><b>00:01</b> · Pick the job first</div>
+    <h2>"Swap" covers two different jobs</h2>
+  </div>
+  <p>Tools sold as "character swap" or "motion swap" do one of two things. Using a tool built for the other job is the most common reason output looks wrong.</p>
+  <div class="split">
+    <div class="job">
+      <span class="pill rp">Replacement</span>
+      <h3>Keep our clip, change who is in it</h3>
+      <ul>
+        <li>You get your own footage back</li>
+        <li>Background, camera move and timing stay</li>
+        <li>Only the subject changes</li>
+      </ul>
+      <div class="tools">Luma Modify · Runway Aleph · Mage · Pika Pikaswaps · Wan Animate (replace mode)</div>
+    </div>
+    <div class="job">
+      <span class="pill mt">Motion transfer</span>
+      <h3>Make a new character perform a move</h3>
+      <ul>
+        <li>Input: a character image plus a driving video</li>
+        <li>Output: a newly generated clip</li>
+        <li>Your original background is not kept</li>
+      </ul>
+      <div class="tools">Kling Motion Control 3.0 · Runway Act-Two · Higgsfield Genjutsu · Wan Animate (move mode) · Viggle</div>
+    </div>
+  </div>
+</section>
+
+<section id="causes">
+  <div class="head">
+    <div class="tc"><b>00:02</b> · Diagnose</div>
+    <h2>What the bad output usually means</h2>
+  </div>
+  <ul class="causes">
+    <li><span class="sym">Face changes mid-clip</span><p>Identity drift. Older models drift more; Kling says version 3.0 holds faces better than 2.6. A cleaner reference photo with the face fully visible helps on every tool.</p></li>
+    <li><span class="sym">Wrong person swapped</span><p>Multiple people in the driving clip. Kling handles one main subject and can pick the wrong face. Crop to one person or use a single-subject clip.</p></li>
+    <li><span class="sym">Melting hands, sliding feet</span><p>Fast or occluded motion. Simplify the driving video, avoid hands crossing the face, and check that the tool has grounded-physics improvements (Kling 3.0 claims planted feet).</p></li>
+    <li><span class="sym">Background warps</span><p>Usually a motion-transfer tool being used for a replacement job, or a replacement strength set too high. On Luma, lower Modify Strength to keep the original scene.</p></li>
+    <li><span class="sym">Soft, blurry result</span><p>Preview tier. Many tools default to 480p or 720p. Test at low resolution, then render finals at 1080p where the plan allows it.</p></li>
+    <li><span class="sym">Camera drifts or reframes</span><p>Framing mode. Kling's "Match video" copies the reference camera framing; "Match image" keeps the character's pose from the photo. Choose deliberately.</p></li>
+  </ul>
+</section>
+
+<section id="tools">
+  <div class="head">
+    <div class="tc"><b>00:03</b> · Shortlist</div>
+    <h2>Tools worth testing</h2>
+  </div>
+  <div class="callout warn">
+    <div class="tc">Read with care</div>
+    <p>There is no independent head-to-head benchmark for this category yet. Most rankings online are written by the vendors or by affiliate sites, and limits and prices change often. Use this table to decide what to test, not what to buy.</p>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Tool</th><th>Job</th><th>Best for</th><th>Reported limits</th><th>Watch out for</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="name">Kling Motion Control 3.0<span class="sub">via Kling or hubs like Higgsfield</span></td>
+          <td><span class="pill mt">Motion transfer</span></td>
+          <td>Full-body moves, dance trends, reels</td>
+          <td class="num">3–30 s reference; 720p standard, 1080p pro; plans from about $10/mo</td>
+          <td>One main subject only; vendor's win-rate claims are self-reported</td>
+        </tr>
+        <tr>
+          <td class="name">Runway Act-Two<span class="sub">plus Aleph for replacement</span></td>
+          <td><span class="pill both">Both</span></td>
+          <td>Talking characters, expressions, short skits</td>
+          <td class="num">Act-Two capped at 720p, Standard plan or higher</td>
+          <td>Short takes; needs a clear in-frame face; not built for choreography</td>
+        </tr>
+        <tr>
+          <td class="name">Luma Modify<span class="sub">Ray3</span></td>
+          <td><span class="pill rp">Replacement</span></td>
+          <td>Swapping the subject in our own footage</td>
+          <td class="num">Up to 20 s at 1080p; Plus from $30/mo; no free tier</td>
+          <td>High Modify Strength reduces scene coherence</td>
+        </tr>
+        <tr>
+          <td class="name">Higgsfield<span class="sub">Genjutsu + several models</span></td>
+          <td><span class="pill both">Both</span></td>
+          <td>One subscription for several models, campaign assets</td>
+          <td class="num">Says Kling 3.0 costs $1.00 per run there vs $1.30 on Runway</td>
+          <td>Pricing comparison is Higgsfield's own</td>
+        </tr>
+        <tr>
+          <td class="name">Wan 2.2 Animate</td>
+          <td><span class="pill both">Both</span></td>
+          <td>Running it on our own hardware, no per-clip fees</td>
+          <td class="num">Open weights; hosted API takes 2–30 s clips, 200–2048 px per side</td>
+          <td>Setup effort is high; little independent quality data</td>
+        </tr>
+        <tr>
+          <td class="name">Mage</td>
+          <td><span class="pill rp">Replacement</span></td>
+          <td>High volume, reusing one character across many clips</td>
+          <td class="num">Unlimited swaps from Pro ($30/mo); 480p/5 s on Pro up to 2K/11 s on Max</td>
+          <td>Ranks itself first in its own guide</td>
+        </tr>
+        <tr>
+          <td class="name">Pika Pikaswaps</td>
+          <td><span class="pill rp">Replacement</span></td>
+          <td>Cheap quick tests</td>
+          <td class="num">5 s cap; 20 / 35 / 65 credits at 480p / 720p / 1080p</td>
+          <td>Free plan limited to 480p</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">Also mentioned often: Magic Hour, Viggle, DomoAI. Treat listicle rankings for tools like Zoice as unverified.</p>
+</section>
+
+<section id="inputs">
+  <div class="head">
+    <div class="tc"><b>00:04</b> · Before every render</div>
+    <h2>Input checklist</h2>
+  </div>
+  <p>These cost nothing and fix a large share of bad output on any tool. Ticks are saved in your browser only.</p>
+  <ul class="checks" id="checks">
+    <li><label><input type="checkbox" id="c1"><span>Reference photo is sharp, evenly lit, and the face is fully visible<small>No sunglasses, hair across the face, or heavy shadow.</small></span></label></li>
+    <li><label><input type="checkbox" id="c2"><span>Reference and driving clip match in type<small>Human to human, full body to full body. Don't drive a headshot with a full-body dance.</small></span></label></li>
+    <li><label><input type="checkbox" id="c3"><span>Driving clip has one main person<small>Crop or trim out bystanders.</small></span></label></li>
+    <li><label><input type="checkbox" id="c4"><span>Motion is readable<small>Avoid hands crossing the face, motion blur, and very fast spins in the source.</small></span></label></li>
+    <li><label><input type="checkbox" id="c5"><span>Prompt describes style and setting, not the action<small>The driving video already supplies the motion.</small></span></label></li>
+    <li><label><input type="checkbox" id="c6"><span>Preview at low resolution, final at 1080p<small>Saves credits on retries.</small></span></label></li>
+    <li><label><input type="checkbox" id="c7"><span>Change one thing per retry<small>Otherwise you can't tell which change helped.</small></span></label></li>
+  </ul>
+</section>
+
+<section id="test">
+  <div class="head">
+    <div class="tc"><b>00:05</b> · Decide on our footage</div>
+    <h2>One-day bake-off</h2>
+  </div>
+  <ol class="plan">
+    <li><div><p><strong>Pick three real clips we've had trouble with.</strong> One dance or full-body move, one talking close-up, one with a moving camera.</p></div></li>
+    <li><div><p><strong>Choose three tools plus our current one as the baseline.</strong> A good starting set: Kling Motion Control 3.0 for body moves, Runway Act-Two for faces, and Luma Modify if we need our own footage back.</p></div></li>
+    <li><div><p><strong>Use the same reference photo and clip in every tool.</strong> Run each through the input checklist first.</p></div></li>
+    <li><div><p><strong>Score each result on the five criteria below</strong>, at the resolution we'd actually publish.</p></div></li>
+    <li><div><p><strong>Add cost per usable clip,</strong> counting retries, and check commercial-use rights on the plan we'd buy.</p></div></li>
+  </ol>
+</section>
+
+<section id="score" class="score">
+  <div class="head">
+    <div class="tc"><b>00:06</b> · Scorecard</div>
+    <h2>Score the results</h2>
+  </div>
+  <p>Rate 1 (unusable) to 5 (publishable). Rename columns to the tools you test. The example scores are placeholders; replace them with your own.</p>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Criterion</th><th><input type="text" id="t0" value="Current tool" aria-label="Tool 1 name"></th><th><input type="text" id="t1" value="Kling 3.0" aria-label="Tool 2 name"></th><th><input type="text" id="t2" value="Act-Two" aria-label="Tool 3 name"></th><th><input type="text" id="t3" value="Luma Modify" aria-label="Tool 4 name"></th></tr>
+      </thead>
+      <tbody id="score-body"></tbody>
+      <tfoot><tr id="totals"><td>Total / 25</td></tr></tfoot>
+    </table>
+  </div>
+  <div class="row-actions">
+    <button type="button" id="reset">Clear scores</button>
+    <span class="note">Scores are saved in your browser only. Share totals in the team chat.</span>
+  </div>
+</section>
+
+<footer>
+  <div class="tc"><b>00:07</b> · Sources</div>
+  <ul class="sources">
+    <li><a href="https://blog.mage.space/article/best-ai-video-character-swap-tools-2026/12641ab0-2977-41f4-87be-78cc67513c8c">Mage: Best AI video character swap tools 2026</a> (vendor-written)</li>
+    <li><a href="https://magichour.ai/blog/best-ai-tools-to-replace-characters-in-videos">Magic Hour: AI character replacement tools for video</a> (vendor-written)</li>
+    <li><a href="https://www.mindstudio.ai/blog/what-is-kling-2-6-pro-motion-control-video">MindStudio: Kling 2.6 Pro Motion Control</a></li>
+    <li><a href="https://klingaio.com/blogs/kling-3-motion-control-release">Kling 3.0 Motion Control release notes</a></li>
+    <li><a href="https://wavespeed.ai/blog/ja/posts/blog-kling-motion-control-vs-wan-2-5/">WaveSpeed: Kling Motion Control vs Wan 2.5</a></li>
+    <li><a href="https://unifically.com/blogs/wan-2.2-animate">Unifically: Wan 2.2 Animate</a></li>
+    <li><a href="https://getnuno.com/blog/higgsfield-genjutsu-alternatives">Nuno: Higgsfield Genjutsu review and alternatives</a></li>
+    <li><a href="https://higgsfield.ai/blog/higgsfield-vs-runway-2026">Higgsfield vs Runway 2026 pricing</a> (vendor-written)</li>
+    <li><a href="https://www.eachlabs.ai/blog/from-still-images-to-motion-with-kling-ai">EachLabs: From still images to motion with Kling</a></li>
+    <li><a href="https://templix.app/blogs/best-ai-motion-control-and-animation-models-in-2026">Templix: Best AI motion control models 2026</a></li>
+  </ul>
+  <p class="note">Compiled 12 October 2026. Prices and limits are as reported by these sources; confirm on each vendor's site before buying.</p>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  var KEY = "motion-swap-brief-v1";
+  var criteria = [
+    ["Face stays the same person", "Identity across turns and the full clip"],
+    ["Hands and feet", "No melting fingers, no sliding feet"],
+    ["Edges and background", "No halo, warping or smearing"],
+    ["Frame-to-frame stability", "No flicker or texture crawl"],
+    ["Camera and timing", "Matches the shot we wanted"]
+  ];
+  var example = [[2,4,3,3],[2,4,2,3],[3,3,3,4],[2,4,3,3],[3,4,3,4]];
+  var state = load();
+
+  function load() {
+    try { var s = JSON.parse(localStorage.getItem(KEY)); if (s) return s; } catch (e) {}
+    return { scores: example, names: null, checks: {} };
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  var body = document.getElementById("score-body");
+  criteria.forEach(function (c, r) {
+    var tr = document.createElement("tr");
+    var td = document.createElement("td");
+    td.innerHTML = "<strong></strong><span class='sub'></span>";
+    td.firstChild.textContent = c[0];
+    td.lastChild.textContent = c[1];
+    tr.appendChild(td);
+    for (var t = 0; t < 4; t++) {
+      var cell = document.createElement("td");
+      var inp = document.createElement("input");
+      inp.type = "number"; inp.min = 1; inp.max = 5; inp.step = 1;
+      inp.id = "s" + r + "-" + t;
+      inp.setAttribute("aria-label", c[0] + ", tool " + (t + 1));
+      var v = state.scores && state.scores[r] ? state.scores[r][t] : "";
+      inp.value = v == null ? "" : v;
+      inp.dataset.r = r; inp.dataset.t = t;
+      cell.appendChild(inp); tr.appendChild(cell);
+    }
+    body.appendChild(tr);
+  });
+
+  var totals = document.getElementById("totals");
+  var totalCells = [];
+  for (var i = 0; i < 4; i++) { var td = document.createElement("td"); totals.appendChild(td); totalCells.push(td); }
+
+  function recalc() {
+    var sums = [0,0,0,0];
+    for (var r = 0; r < criteria.length; r++) for (var t = 0; t < 4; t++) {
+      var n = parseInt(state.scores[r][t], 10);
+      if (n >= 1 && n <= 5) sums[t] += n;
+    }
+    var max = Math.max.apply(null, sums);
+    sums.forEach(function (s, t) {
+      totalCells[t].textContent = s;
+      totalCells[t].className = (s === max && s > 0) ? "best" : "";
+    });
+  }
+
+  body.addEventListener("input", function (e) {
+    var el = e.target; if (!el.dataset || el.dataset.r == null) return;
+    var n = parseInt(el.value, 10);
+    if (n > 5) { el.value = 5; n = 5; }
+    if (n < 1) { el.value = 1; n = 1; }
+    state.scores[el.dataset.r][el.dataset.t] = isNaN(n) ? "" : n;
+    save(); recalc();
+  });
+
+  for (var k = 0; k < 4; k++) (function (k) {
+    var el = document.getElementById("t" + k);
+    if (state.names && state.names[k]) el.value = state.names[k];
+    el.addEventListener("input", function () {
+      state.names = state.names || [];
+      state.names[k] = el.value; save();
+    });
+  })(k);
+
+  document.getElementById("reset").addEventListener("click", function () {
+    state.scores = criteria.map(function () { return ["","","",""]; });
+    body.querySelectorAll("input").forEach(function (el) { el.value = ""; });
+    save(); recalc();
+  });
+
+  document.querySelectorAll("#checks input").forEach(function (el) {
+    el.checked = !!(state.checks && state.checks[el.id]);
+    el.addEventListener("change", function () {
+      state.checks = state.checks || {};
+      state.checks[el.id] = el.checked; save();
+    });
+  });
+
+  recalc();
+})();
+</script>

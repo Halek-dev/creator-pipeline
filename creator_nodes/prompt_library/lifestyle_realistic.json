@@ -1,0 +1,60 @@
+{
+  "description": "Everyday lifestyle scenes that read like phone photos. Starter library: add your own entries.",
+  "template": "{activity} {location}, {time_of_day}, {lighting}, {camera}, {mood}",
+  "slots": {
+    "activity": [
+      "sitting with a coffee",
+      "walking and looking over the shoulder",
+      "laughing mid-conversation",
+      "reading a paperback",
+      "leaning on a railing",
+      "taking a mirror selfie",
+      "carrying grocery bags",
+      "stretching after a run",
+      "checking a phone",
+      "holding a takeaway cup"
+    ],
+    "location": [
+      "in a small neighbourhood cafe",
+      "on a busy city sidewalk",
+      "at a farmers market",
+      "in a sunlit apartment kitchen",
+      "on a beach boardwalk",
+      "in a bookshop aisle",
+      "on a rooftop terrace",
+      "in a park under trees",
+      "at a train platform",
+      "in a hotel lobby"
+    ],
+    "time_of_day": [
+      "early morning",
+      "late morning",
+      "midday",
+      "golden hour",
+      "blue hour",
+      "overcast afternoon"
+    ],
+    "lighting": [
+      "soft window light",
+      "harsh direct sunlight with hard shadows",
+      "mixed indoor tungsten light",
+      "diffused cloudy light",
+      "backlit with lens flare",
+      "phone flash"
+    ],
+    "camera": [
+      "shot on iPhone, slight motion blur",
+      "candid phone photo, off-centre framing",
+      "35mm film look, visible grain",
+      "front camera selfie, wide angle distortion",
+      "friend-taken photo from slightly below"
+    ],
+    "mood": [
+      "relaxed",
+      "playful",
+      "candid and unposed",
+      "thoughtful",
+      "energetic"
+    ]
+  }
+}

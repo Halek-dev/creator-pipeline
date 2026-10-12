@@ -1,0 +1,7 @@
+ComfyUI/
+.venv/
+batch_runs/
+__pycache__/
+*.pyc
+*.safetensors
+*.part

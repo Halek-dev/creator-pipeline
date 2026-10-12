@@ -1,0 +1,452 @@
+<title>Creator Pipeline Playbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; each chapter is a "node" with a typed socket label (MODEL, LORA, IMAGE...) as its eyebrow. Code and tables scroll in their own frames. */
+:root {
+  --bg: #F2F4F6;
+  --surface: #FFFFFF;
+  --code-bg: #E9EDF1;
+  --ink: #15202B;
+  --muted: #56636F;
+  --line: #D5DCE2;
+  --accent: #0B6E8A;
+  --accent-soft: #DCEEF3;
+  --warn: #9A5B00;
+  --warn-soft: #FBEFD9;
+  --bad: #A3332B;
+  --bad-soft: #F8E1DE;
+  --good: #1F7A4D;
+  --good-soft: #DDF1E6;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F151B; --surface: #172029; --code-bg: #0B1116; --ink: #E4EAEF; --muted: #98A6B2; --line: #2A3540;
+    --accent: #5CC3DE; --accent-soft: #15333D; --warn: #E9B25A; --warn-soft: #362A15;
+    --bad: #F08A80; --bad-soft: #3A1C19; --good: #6FCF9C; --good-soft: #15301F; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F151B; --surface: #172029; --code-bg: #0B1116; --ink: #E4EAEF; --muted: #98A6B2; --line: #2A3540;
+  --accent: #5CC3DE; --accent-soft: #15333D; --warn: #E9B25A; --warn-soft: #362A15;
+  --bad: #F08A80; --bad-soft: #3A1C19; --good: #6FCF9C; --good-soft: #15301F; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding-inline: 20px; padding-block: 48px 72px; display: grid; gap: 64px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.65rem; font-weight: 700; }
+h3 { font-size: 1.1rem; font-weight: 600; }
+p, li { max-width: 68ch; }
+p { margin: 0; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.88em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+section { display: grid; gap: 18px; }
+.head { display: grid; gap: 6px; }
+.socket { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.socket::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex: none; }
+.socket.warn::before { background: var(--warn); }
+
+header { display: grid; gap: 18px; border-bottom: 1px solid var(--line); padding-bottom: 32px; }
+.lede { font-size: 1.12rem; color: var(--muted); }
+.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.toc a { display: inline-block; font-size: 0.88rem; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); text-decoration: none; }
+.toc a:hover { border-color: var(--accent); }
+
+.verdict { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 24px; display: grid; gap: 18px; }
+.flags { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.flags li { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
+.tag { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; white-space: nowrap; margin-top: 3px; }
+.tag.bad { background: var(--bad-soft); color: var(--bad); }
+.tag.warn { background: var(--warn-soft); color: var(--warn); }
+.tag.good { background: var(--good-soft); color: var(--good); }
+.flags p { color: var(--muted); }
+.flags strong { color: var(--ink); }
+
+.callout { border-radius: 10px; padding: 16px 20px; display: grid; gap: 6px; background: var(--accent-soft); }
+.callout.warn { background: var(--warn-soft); }
+.callout.bad { background: var(--bad-soft); }
+.callout h3 { font-size: 1rem; }
+
+ul.plain, ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+ol.steps > li::marker { font-family: var(--mono); color: var(--accent); }
+ol.steps strong { color: var(--ink); }
+
+.code { position: relative; background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-width: 0; }
+.code .bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 10px 6px 14px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+.code pre { margin: 0; padding: 14px; overflow-x: auto; font-family: var(--mono); font-size: 0.84rem; line-height: 1.55; color: var(--ink); }
+button.copy { font: inherit; font-size: 0.75rem; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+button.copy:hover { border-color: var(--accent); }
+
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 0.92rem; }
+th, td { text-align: left; vertical-align: top; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; }
+
+.diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 620px; height: auto; }
+.diagram text { font-family: var(--mono); font-size: 12px; fill: var(--ink); }
+.diagram .lbl { font-size: 10px; fill: var(--muted); }
+.diagram .box { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; }
+.diagram .box.hl { fill: var(--accent-soft); stroke: var(--accent); }
+.diagram .wire { stroke: var(--accent); stroke-width: 2; fill: none; }
+.diagram .wire.lora { stroke: var(--warn); stroke-dasharray: 5 4; }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.panel p, .panel li { color: var(--muted); }
+.note { font-size: 0.86rem; color: var(--muted); }
+
+.sources { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.9rem; color: var(--muted); }
+footer { border-top: 1px solid var(--line); padding-top: 24px; display: grid; gap: 14px; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="socket">Team playbook · October 2026</div>
+  <h1>LoRAs, nodes and Seedance, explained</h1>
+  <p class="lede">What a $777 workflow bundle actually contains, and how to build the same pieces yourself: how ComfyUI nodes work, how to write one, how LoRAs work, how to train a character LoRA, and how to set up Seedance 2.5.</p>
+  <ul class="toc">
+    <li><a href="#offer">The INSTARAW offer</a></li>
+    <li><a href="#nodes">How nodes work</a></li>
+    <li><a href="#build-node">Build a node</a></li>
+    <li><a href="#lora">How LoRA works</a></li>
+    <li><a href="#train">Train a LoRA</a></li>
+    <li><a href="#seedance">Seedance 2.5</a></li>
+    <li><a href="#pipeline">Full pipeline</a></li>
+  </ul>
+</header>
+
+<section id="offer">
+  <div class="head">
+    <div class="socket warn">Before anyone pays</div>
+    <h2>Reading the INSTARAW V2.0 offer</h2>
+  </div>
+  <div class="verdict">
+    <p>The models in the bundle (Wan 2.2, Z-Image Turbo, SDXL) and ComfyUI itself are <strong>free and open source</strong>. You'd be paying for their packaged workflows, custom nodes and support. That can be worth money for some teams, but the pitch has problems worth knowing first.</p>
+    <ul class="flags">
+      <li><span class="tag bad">Numbers</span><p><strong>The scarcity counter doesn't add up.</strong> 777 minus 701 is 76, not the "82 left" it claims, and the same message also says "next 22 spots only." Countdown timers and "closed forever" are pressure tactics, not facts about supply. Digital files don't run out.</p></li>
+      <li><span class="tag bad">Payment</span><p><strong>Crypto can't be refunded.</strong> If you buy, use PayPal Goods &amp; Services (not Friends &amp; Family), which gives buyer protection. Ask for the refund policy in writing first.</p></li>
+      <li><span class="tag bad">Security</span><p><strong>"50+ proprietary Python nodes" is code that runs on your machine</strong> with full access to your files, browser data and saved logins. Malicious ComfyUI node packs have stolen credentials before. Don't install closed-source nodes from a Discord or Drive link on a computer that holds client or banking logins. Use a cloud GPU (RunPod, Vast.ai) or a separate machine.</p></li>
+      <li><span class="tag warn">"Lifetime"</span><p><strong>The offer promises "lifetime" access to a platform that will charge others monthly.</strong> Lifetime deals depend on the seller staying in business. There's no contract, so treat it as a one-time purchase of what's in the folder today.</p></li>
+      <li><span class="tag warn">Motion</span><p><strong>Motion control is "coming in V3."</strong> That's the feature your team actually asked about, and it isn't in what you'd buy today.</p></li>
+      <li><span class="tag warn">Consent</span><p><strong>The pitch leans on NSFW character LoRAs.</strong> Only train LoRAs on a fictional character you created or a person who gave written consent. Sexual deepfakes of real people are illegal in many countries, including under the US TAKE IT DOWN Act, and platforms ban accounts for them.</p></li>
+      <li><span class="tag good">Free route</span><p><strong>Everything below gets you the same building blocks for free.</strong> ComfyUI's built-in templates already include Wan 2.2, Wan Animate and Z-Image workflows. What you'd give up is their batch-processing nodes and support.</p></li>
+    </ul>
+  </div>
+</section>
+
+<section id="nodes">
+  <div class="head">
+    <div class="socket">Graph</div>
+    <h2>How ComfyUI nodes work</h2>
+  </div>
+  <p>ComfyUI is a visual programming tool. Each box (a <strong>node</strong>) is one Python function. Its sockets have types, such as <code>MODEL</code>, <code>CLIP</code>, <code>VAE</code>, <code>CONDITIONING</code>, <code>LATENT</code> and <code>IMAGE</code>, and you can only connect matching types. When you press Queue, ComfyUI runs the nodes in dependency order and skips any node whose inputs haven't changed since the last run.</p>
+  <div class="diagram" role="img" aria-label="Basic image workflow: Load Checkpoint feeds a LoRA Loader, which feeds a text encoder and KSampler, then VAE Decode and Save Image.">
+    <svg viewBox="0 0 860 230" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box" x="10" y="80" width="140" height="60" rx="8"/>
+      <text x="80" y="108" text-anchor="middle">Load Checkpoint</text>
+      <text class="lbl" x="80" y="126" text-anchor="middle">MODEL · CLIP · VAE</text>
+
+      <rect class="box hl" x="190" y="80" width="130" height="60" rx="8"/>
+      <text x="255" y="108" text-anchor="middle">LoRA Loader</text>
+      <text class="lbl" x="255" y="126" text-anchor="middle">strength 0.8</text>
+
+      <rect class="box" x="360" y="10" width="140" height="60" rx="8"/>
+      <text x="430" y="38" text-anchor="middle">CLIP Text Encode</text>
+      <text class="lbl" x="430" y="56" text-anchor="middle">your prompt</text>
+
+      <rect class="box" x="360" y="150" width="140" height="60" rx="8"/>
+      <text x="430" y="178" text-anchor="middle">Empty Latent</text>
+      <text class="lbl" x="430" y="196" text-anchor="middle">1024 × 1024</text>
+
+      <rect class="box" x="540" y="80" width="120" height="60" rx="8"/>
+      <text x="600" y="108" text-anchor="middle">KSampler</text>
+      <text class="lbl" x="600" y="126" text-anchor="middle">steps · cfg · seed</text>
+
+      <rect class="box" x="700" y="30" width="150" height="50" rx="8"/>
+      <text x="775" y="60" text-anchor="middle">VAE Decode</text>
+      <rect class="box" x="700" y="140" width="150" height="50" rx="8"/>
+      <text x="775" y="170" text-anchor="middle">Save Image</text>
+
+      <path class="wire lora" d="M150 110 H190"/>
+      <path class="wire" d="M320 100 C340 100 340 40 360 40"/>
+      <path class="wire" d="M320 115 H540"/>
+      <path class="wire" d="M500 40 C520 40 520 95 540 95"/>
+      <path class="wire" d="M500 180 C520 180 520 128 540 128"/>
+      <path class="wire" d="M660 110 C680 110 680 55 700 55"/>
+      <path class="wire" d="M775 80 V140"/>
+      <text class="lbl" x="170" y="100" text-anchor="middle">MODEL</text>
+      <text class="lbl" x="430" y="108" text-anchor="middle">MODEL</text>
+      <text class="lbl" x="680" y="98" text-anchor="middle">LATENT</text>
+      <text class="lbl" x="790" y="114">IMAGE</text>
+    </svg>
+  </div>
+  <ul class="plain">
+    <li><strong>Checkpoint</strong>: the base model (SDXL, Z-Image, Wan 2.2).</li>
+    <li><strong>LoRA Loader</strong>: patches the model with your character or style. It sits between the checkpoint and the sampler.</li>
+    <li><strong>KSampler</strong>: starts from noise and removes it step by step, guided by your prompt.</li>
+    <li><strong>VAE Decode</strong>: turns the compressed "latent" result into real pixels.</li>
+  </ul>
+  <p>Video workflows (Wan 2.2, Wan Animate) use the same idea with extra nodes for frames and reference video. Open <strong>Workflow → Browse Templates</strong> in ComfyUI to load working examples instead of building from scratch.</p>
+</section>
+
+<section id="build-node">
+  <div class="head">
+    <div class="socket">Python</div>
+    <h2>Build your own node</h2>
+  </div>
+  <p>A custom node is a folder inside <code>ComfyUI/custom_nodes/</code> with an <code>__init__.py</code>. New nodes use ComfyUI's V3 schema: a class that describes its inputs and outputs, an <code>execute</code> method, and an entry point that registers it.</p>
+  <p>This example builds a <strong>Character Prompt</strong> node. It always puts your LoRA trigger word first, so nobody on the team forgets it.</p>
+  <div class="code">
+    <div class="bar"><span>ComfyUI/custom_nodes/team_nodes/__init__.py</span><button class="copy" type="button">Copy</button></div>
+<pre>from comfy_api.latest import ComfyExtension, io
+
+
+class CharacterPrompt(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -&gt; io.Schema:
+        return io.Schema(
+            node_id="TeamNodes_CharacterPrompt",
+            display_name="Character Prompt",
+            category="team_nodes",
+            inputs=[
+                io.String.Input("trigger", default="mychar"),
+                io.Combo.Input("shot", options=["close-up portrait", "medium shot", "full body"]),
+                io.String.Input("scene", multiline=True, default="walking through a sunlit market"),
+            ],
+            outputs=[io.String.Output()],
+        )
+
+    @classmethod
+    def execute(cls, trigger, shot, scene) -&gt; io.NodeOutput:
+        prompt = f"{trigger}, {shot}, {scene.strip()}"
+        return io.NodeOutput(prompt)
+
+
+class TeamNodesExtension(ComfyExtension):
+    async def get_node_list(self) -&gt; list[type[io.ComfyNode]]:
+        return [CharacterPrompt]
+
+
+async def comfy_entrypoint() -&gt; TeamNodesExtension:
+    return TeamNodesExtension()</pre>
+  </div>
+  <ol class="steps">
+    <li>Save the file, then <strong>restart ComfyUI</strong>. Nodes load only at startup.</li>
+    <li>Double-click the canvas and search "Character Prompt". It appears under <code>team_nodes</code>.</li>
+    <li>Wire its output into the <code>text</code> input of a CLIP Text Encode node (right-click the encoder → convert text to input if needed).</li>
+    <li>Check the terminal window for errors if the node doesn't show up.</li>
+  </ol>
+  <div class="two">
+    <div class="panel">
+      <h3>Working with images</h3>
+      <p>Images arrive as a PyTorch tensor shaped <code>[batch, height, width, channels]</code> with values from 0 to 1. Use <code>io.Image.Input("image")</code> and return a tensor of the same shape.</p>
+    </div>
+    <div class="panel">
+      <h3>Older node packs</h3>
+      <p>Many existing packs use the V1 style: <code>INPUT_TYPES</code>, <code>RETURN_TYPES</code>, <code>FUNCTION</code> and <code>NODE_CLASS_MAPPINGS</code>. It still works, but new features go to V3 only.</p>
+    </div>
+  </div>
+  <p class="note">Install other people's nodes through ComfyUI Manager from known GitHub repos, and skim the code before installing anything closed-source.</p>
+</section>
+
+<section id="lora">
+  <div class="head">
+    <div class="socket">Weights</div>
+    <h2>How LoRA works</h2>
+  </div>
+  <p>A base model has billions of numbers (weights) that it learned during training. Retraining all of them to teach it one new character would need huge GPUs and produce a multi-gigabyte file.</p>
+  <p><strong>LoRA (Low-Rank Adaptation)</strong> freezes the base model and trains a small "patch" instead. For each big weight grid, it learns two thin grids that multiply into a correction. The <strong>rank</strong> sets how thin they are: rank 16 or 32 is typical. The result is a file of tens to a few hundred megabytes that you load on top of the base model.</p>
+  <div class="two">
+    <div class="panel">
+      <h3>During training</h3>
+      <ul class="plain">
+        <li>Take one of your images and add random noise to it.</li>
+        <li>Ask the model to predict that noise, using the caption with your trigger word.</li>
+        <li>Measure the error and nudge only the LoRA patch.</li>
+        <li>Repeat a few thousand times.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>When you use it</h3>
+      <ul class="plain">
+        <li>The LoRA only works with the base model it was trained on. An SDXL LoRA won't load on Wan 2.2.</li>
+        <li><strong>Strength</strong> scales the patch: 0.6–1.0 is the usual range.</li>
+        <li>The <strong>trigger word</strong> from your captions calls up the character.</li>
+        <li>You can stack a character LoRA with a style LoRA at lower strengths.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>What you see</th><th>Meaning</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>Doesn't look like the character</td><td>Undertrained</td><td>Use a later checkpoint, or train more steps</td></tr>
+        <tr><td>Same pose, outfit or background every time</td><td>Overtrained, or dataset too repetitive</td><td>Use an earlier checkpoint; add more varied photos</td></tr>
+        <tr><td>Burned colours, crunchy skin</td><td>Overtrained or strength too high</td><td>Lower strength to about 0.7; earlier checkpoint</td></tr>
+        <tr><td>Character appears without the trigger word</td><td>Trigger leaked into the whole LoRA</td><td>Write fuller captions that describe everything except the character's identity</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="train">
+  <div class="head">
+    <div class="socket">Training</div>
+    <h2>Train a character LoRA</h2>
+  </div>
+  <p>Start with a still-image LoRA on <strong>Z-Image Turbo</strong>. It trains fastest and gives you consistent character photos to feed into video models. Move to a Wan 2.2 LoRA once the image version looks right.</p>
+
+  <h3>1. Hardware</h3>
+  <p>Plan on an NVIDIA GPU with 16 GB VRAM or more (24 GB is comfortable). Without one, rent a GPU on RunPod or Vast.ai for a few dollars a run, or use a hosted trainer such as fal.ai or RunComfy.</p>
+
+  <h3>2. Build the dataset</h3>
+  <ol class="steps">
+    <li><strong>15–30 images</strong> of the character. Variety beats volume: different angles, expressions, lighting, outfits and backgrounds.</li>
+    <li>Use sharp images around 1024 px. Crop out other people, watermarks and text.</li>
+    <li>Pick a <strong>trigger word</strong> that isn't a real word, such as <code>zr4char</code>.</li>
+    <li>Put a <code>.txt</code> caption next to each image with the same filename. Start with the trigger, then describe the scene plainly:</li>
+  </ol>
+  <div class="code">
+    <div class="bar"><span>dataset/zr4char/img_007.txt</span><button class="copy" type="button">Copy</button></div>
+<pre>zr4char, a woman in a green raincoat, three-quarter view, standing on a city street at dusk, soft streetlight, shallow depth of field</pre>
+  </div>
+
+  <h3>3. Install ai-toolkit</h3>
+  <p>Ostris's <a href="https://github.com/ostris/ai-toolkit">ai-toolkit</a> is free and has a web UI with a Z-Image Turbo preset. Follow the README for the exact PyTorch install for your GPU; the outline on Windows is:</p>
+  <div class="code">
+    <div class="bar"><span>PowerShell</span><button class="copy" type="button">Copy</button></div>
+<pre>git clone https://github.com/ostris/ai-toolkit
+cd ai-toolkit
+python -m venv venv
+.\venv\Scripts\activate
+# install PyTorch for your CUDA version (see README), then:
+pip install -r requirements.txt
+cd ui
+npm run build_and_start</pre>
+  </div>
+  <p>Then open <code>http://localhost:8675</code>, upload the dataset folder and create a new job.</p>
+
+  <h3>4. Starting settings</h3>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Setting</th><th>Z-Image Turbo</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Model</td><td>Z-Image Turbo (with training adapter)</td><td>Training Turbo without the adapter breaks its fast 8-step sampling</td></tr>
+        <tr><td>Rank</td><td class="num">16–32</td><td>Higher holds more detail, bigger file</td></tr>
+        <tr><td>Learning rate</td><td class="num">1e-4</td><td>Common default; lower if results burn</td></tr>
+        <tr><td>Steps</td><td class="num">2,000–3,000</td><td>Roughly 100 steps per image</td></tr>
+        <tr><td>Batch size</td><td class="num">1</td><td>Fits 16 GB cards</td></tr>
+        <tr><td>Optimizer</td><td>AdamW8bit</td><td>Saves memory</td></tr>
+        <tr><td>Samples / saves</td><td class="num">Every 250 steps</td><td>So you can pick the best checkpoint</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5. Pick the best checkpoint</h3>
+  <p>Don't assume the last save is best. Load several checkpoints in ComfyUI, generate the same 4 prompts with each (including a new outfit and a new angle), and keep the earliest one that holds the face while still following the prompt.</p>
+
+  <div class="callout">
+    <h3>Moving to video: Wan 2.2 LoRAs</h3>
+    <p>ai-toolkit and musubi-tuner both train Wan 2.2. The 14B model has two parts (high-noise and low-noise), so character LoRAs are usually trained for both. Guides suggest 20–50 images for text-to-video, rank 32, learning rate around 5e-5 on a 12 GB card. Expect a few hours per run. If you mainly use image-to-video, your Z-Image LoRA photos already give Wan a consistent starting frame, and you may not need a video LoRA at all.</p>
+  </div>
+</section>
+
+<section id="seedance">
+  <div class="head">
+    <div class="socket">Video API</div>
+    <h2>Set up Seedance 2.5</h2>
+  </div>
+  <p>Seedance 2.5 is ByteDance's closed video model. You can't download it or train LoRAs for it; you pay per render through an API. It does text-to-video and image-to-video at 1080p, up to 30 seconds, with generated dialogue, music and sound effects, plus reference-image inputs for consistent characters.</p>
+  <div class="two">
+    <div class="panel">
+      <h3>Option A: Comfy Cloud <span class="tag good">easiest</span></h3>
+      <ol class="steps">
+        <li>Create an account at comfy.org (5 free runs, no card).</li>
+        <li>Open a Seedance 2.5 template from the workflow library.</li>
+        <li>Add your prompt or a start image and run.</li>
+        <li>Buy credits or subscribe when the free runs are gone. Plans start at $20/month.</li>
+      </ol>
+      <p>No GPU needed. Comfy says renders can be used commercially without a watermark.</p>
+    </div>
+    <div class="panel">
+      <h3>Option B: Your own ComfyUI</h3>
+      <ol class="steps">
+        <li>Update ComfyUI to the latest version.</li>
+        <li>Sign in with your Comfy account inside ComfyUI and add credits. Seedance runs as a paid partner (API) node.</li>
+        <li>Load the Seedance template, or search "Seedance" on the canvas.</li>
+        <li>Mix it with local nodes, such as your LoRA image workflow feeding its start frame.</li>
+      </ol>
+      <p>Community packs that call Seedance through third-party resellers also exist. Avoid them unless you trust the reseller with your API key and billing.</p>
+    </div>
+  </div>
+  <div class="callout warn">
+    <h3>Save credits</h3>
+    <p>Draft shots for free on Wan 2.2 locally, then render only the finals with Seedance.</p>
+  </div>
+</section>
+
+<section id="pipeline">
+  <div class="head">
+    <div class="socket">Full pipeline</div>
+    <h2>Putting it together</h2>
+  </div>
+  <ol class="steps">
+    <li><strong>Create the character.</strong> Design a fictional character, or get written consent from a real person.</li>
+    <li><strong>Train a Z-Image Turbo LoRA</strong> on 15–30 varied images.</li>
+    <li><strong>Generate key stills</strong> in ComfyUI with the LoRA and your Character Prompt node.</li>
+    <li><strong>Animate</strong> the stills: Wan 2.2 locally for drafts, Seedance 2.5 for finals, or Kling 3.0 / Wan Animate for motion swaps (see the motion swap brief).</li>
+    <li><strong>Score the results</strong> with the motion swap scorecard before choosing a paid tool.</li>
+  </ol>
+  <p>If you still want INSTARAW after trying this, you'll know exactly which of their extras (batch nodes, prompt database, support) you're paying for.</p>
+</section>
+
+<footer>
+  <div class="socket">Sources</div>
+  <ul class="sources">
+    <li><a href="https://docs.comfy.org/custom-nodes/v3_migration">ComfyUI docs: V3 custom node schema</a></li>
+    <li><a href="https://comfy.org/seedance-2.5/">Comfy: Seedance 2.5</a></li>
+    <li><a href="https://comfy.org/workflows/9ed4f6b88b6a-9ed4f6b88b6a/">Comfy: Seedance 2.5 text-to-video workflow</a></li>
+    <li><a href="https://github.com/Anil-matcha/seedance2.5-comfyui">Seedance 2.5 community nodes (MuAPI)</a></li>
+    <li><a href="https://github.com/ostris/ai-toolkit">ostris/ai-toolkit</a></li>
+    <li><a href="https://www.runcomfy.com/trainer/ai-toolkit/z-image-turbo-lora-training">RunComfy: Z-Image Turbo LoRA training</a></li>
+    <li><a href="https://neurocanvas.net/blog/zimage-lora-training-guide/">NeuroCanvas: Z-Image Turbo LoRA with AI Toolkit</a></li>
+    <li><a href="https://civitai.com/articles/23842/z-image-turbo-character-lora-training-guide-easy-how-to-guide">Civitai: Z-Image Turbo character LoRA guide</a></li>
+    <li><a href="https://wan27.org/blog/wan-2-2-lora-training-guide">Wan 2.2 LoRA training guide</a></li>
+    <li><a href="https://fal.ai/models/fal-ai/wan-22-image-trainer">fal.ai: Wan 2.2 trainer</a></li>
+  </ul>
+  <p class="note">Compiled 12 October 2026. Training numbers are community starting points, not fixed rules. Check each tool's current docs before a long run.</p>
+</footer>
+
+</div>
+
+<script>
+document.querySelectorAll(".code").forEach(function (block) {
+  var btn = block.querySelector("button.copy");
+  var pre = block.querySelector("pre");
+  if (!btn || !pre) return;
+  btn.addEventListener("click", function () {
+    var text = pre.innerText;
+    function done(msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = "Copy"; }, 1500); }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done("Copied"); }, function () { select(); });
+    } catch (e) { select(); }
+    function select() {
+      var r = document.createRange(); r.selectNodeContents(pre);
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      done("Press Ctrl+C");
+    }
+  });
+});
+</script>

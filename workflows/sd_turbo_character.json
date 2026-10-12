@@ -1,0 +1,85 @@
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": { "title": "Checkpoint" },
+    "inputs": { "ckpt_name": "sd_turbo.safetensors" }
+  },
+  "2": {
+    "class_type": "Creator_PromptLibrary",
+    "_meta": { "title": "Prompt Library" },
+    "inputs": { "library": "lifestyle_realistic", "mode": "sequential", "seed": 0 }
+  },
+  "3": {
+    "class_type": "Creator_CharacterPrompt",
+    "_meta": { "title": "Character Prompt" },
+    "inputs": {
+      "trigger": "a young woman with curly red hair",
+      "shot": "medium shot",
+      "scene": ["2", 0],
+      "style": "photorealistic, natural skin texture"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Positive" },
+    "inputs": { "clip": ["1", 1], "text": ["3", 0] }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Negative" },
+    "inputs": { "clip": ["1", 1], "text": "" }
+  },
+  "6": {
+    "class_type": "EmptyLatentImage",
+    "_meta": { "title": "Size" },
+    "inputs": { "width": 512, "height": 512, "batch_size": 1 }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "_meta": { "title": "Sampler Type" },
+    "inputs": { "sampler_name": "euler_ancestral" }
+  },
+  "8": {
+    "class_type": "SDTurboScheduler",
+    "_meta": { "title": "Turbo Scheduler" },
+    "inputs": { "model": ["1", 0], "steps": 1, "denoise": 1.0 }
+  },
+  "9": {
+    "class_type": "SamplerCustom",
+    "_meta": { "title": "Sampler" },
+    "inputs": {
+      "model": ["1", 0],
+      "add_noise": true,
+      "noise_seed": 0,
+      "cfg": 1.0,
+      "positive": ["4", 0],
+      "negative": ["5", 0],
+      "sampler": ["7", 0],
+      "sigmas": ["8", 0],
+      "latent_image": ["6", 0]
+    }
+  },
+  "10": {
+    "class_type": "VAEDecode",
+    "_meta": { "title": "Decode" },
+    "inputs": { "samples": ["9", 0], "vae": ["1", 2] }
+  },
+  "11": {
+    "class_type": "Creator_RealityFinish",
+    "_meta": { "title": "Reality Finish" },
+    "inputs": {
+      "image": ["10", 0],
+      "grain": 0.03,
+      "vignette": 0.2,
+      "warmth": 0.02,
+      "lens_fringe_px": 1,
+      "jpeg_quality": 88,
+      "seed": 0
+    }
+  },
+  "12": {
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save" },
+    "inputs": { "images": ["11", 0], "filename_prefix": "character/img" }
+  }
+}

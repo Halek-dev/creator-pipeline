@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "comfyui-cpu",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["ComfyUI\\main.py", "--listen", "127.0.0.1", "--port", "8188", "--cpu"],
+      "port": 8188
+    }
+  ]
+}
