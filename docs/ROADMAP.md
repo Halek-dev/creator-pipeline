@@ -85,11 +85,12 @@ Goal: choose where the clip happens: described, the reference image's scene, or 
 | 3A | Auto background prompt | A vision model describes the reference image's scene (or a driving-video frame) into a background prompt. App option: "Background: preset / from reference image / from video / custom". ~1 day. |
 | 3B | Replace inside the original video | **SCAIL-2 int8** workflow (all core ComfyUI nodes): SAM3 tracks the person in the driving video → mask → `WanSCAILToVideo` with the DPO LoRA → colour transfer to match the original. Keeps the real background, lighting and camera. 2–3 days. Models: ~22 GB. |
 | 3C | Kling 3 Motion Control | API workflow using the installed `KlingMotionControl` node: reference image in its own scene + driving video. Paid per clip via Comfy credits (your account, ~$20 to start). Shown in the app as "Kling (paid)". ~1 day. |
-| 3.4 | Three-way comparison | Same input pair through Wan Animate 2, SCAIL-2 and Kling; scorecard filled; written recommendation per use case. |
+| 3D | Seedance 2.5 Reference to Video | API workflow using the installed `ByteDance Seedance 2.5 Reference to Video` node: reference image(s) + reference video + prompt, 1080p, with generated audio. This is the route INSTARAW recommends; it's closed and per-clip, so it's our paid benchmark. Same credits as 3C. ~1 day. |
+| 3.5 | Four-way comparison | Same input pair through Wan Animate 2, SCAIL-2, Kling 3 and Seedance 2.5; scorecard filled, cost per clip noted; written recommendation per use case. |
 
-Done when: a teammate can pick any of the four background modes from the app and get a clip; the comparison doc exists.
+Done when: a teammate can pick any background mode or engine from the app and get a clip; the comparison doc exists.
 
-Effort: 5–7 days. Test cost: ~$8 GPU + ~$20 Kling credits.
+Effort: 6–8 days. Test cost: ~$8 GPU + ~$30 Comfy credits (Kling and Seedance).
 
 ---
 
@@ -113,7 +114,7 @@ Effort: 2–3 days.
 | 0 Foundations | 2–3 days | ~$3 | volume ~$7/month |
 | 1 Team app | 3–4 days | ~$3 | |
 | 2 Quality | 4–5 days | ~$8 | |
-| 3 Backgrounds | 5–7 days | ~$8 | Kling credits ~$20 |
+| 3 Backgrounds + engines | 6–8 days | ~$8 | Comfy credits ~$30 (Kling, Seedance) |
 | 4 Handoff | 2–3 days | ~$2 | |
 | **Total** | **~4 weeks** | **~$25** | |
 
@@ -124,7 +125,8 @@ Phases run in order; 3A and 3C can start during Phase 2 if wanted.
 | Risk | Impact | Mitigation |
 |---|---|---|
 | Hands smear in fast motion (model ceiling) | Some choreography stays imperfect | Multi-seed picking, slower moves, High tier; set expectations |
-| SCAIL-2 needs a recent ComfyUI | 3B blocked until updated | Pin a ComfyUI version that has it; verify on Phase 0 smoke test |
+| ComfyUI version drift | New nodes (SCAIL-2, SeedVR2, FILM) could vanish or change on update | Verified present in our pinned build (commit e8665ca, 11 Oct 2026); boot smoke test re-checks |
+| Paid engines (Kling, Seedance) change price or API | 3C/3D cost drift | Cost shown per job; both are optional paths next to the open models |
 | GPU sold out on RunPod | Session delayed | Volume region with several GPU types; A40 fallback |
 | Kling/Comfy credit changes | 3C cost drift | Shown per job; optional path |
 | Platform policy (impersonation, AI labelling, TikTok motion-control shadowbans) | Account bans | Original characters only; consent for real people; label AI content; vary content types |
@@ -133,7 +135,7 @@ Phases run in order; 3A and 3C can start during Phase 2 if wanted.
 ## Decisions needed from you
 
 1. Default GPU: **L40S** (recommended) or A40.
-2. Approve ~$20 Comfy credits when Phase 3C starts.
+2. Approve ~$30 Comfy credits when Phase 3C/3D (Kling, Seedance) starts.
 3. Starter presets: I draft six; you edit names and looks.
 4. Who on the team tests each phase (one person is enough).
 
