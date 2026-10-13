@@ -66,6 +66,7 @@ def stop_pod(action):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--minutes", type=float, default=20)
+    parser.add_argument("--grace", type=float, default=45, help="Idle minutes allowed before the first job (setup time)")
     parser.add_argument("--port", type=int, default=8188)
     parser.add_argument("--action", choices=["stop", "terminate"], default="stop")
     parser.add_argument("--interval", type=float, default=30, help="Seconds between checks")
@@ -77,7 +78,8 @@ def main():
     status = LOGS / "watchdog.status"
     last_active = time.time()
     last_history = None
-    log(f"watching ComfyUI on port {args.port}; {args.action} after {args.minutes:g} idle minutes")
+    seen_job = False
+    log(f"watching ComfyUI on port {args.port}; {args.action} after {args.grace:g} idle minutes before the first job, {args.minutes:g} after")
 
     while True:
         try:
@@ -85,6 +87,7 @@ def main():
             count = history_count(server)
             if busy or (last_history is not None and count != last_history):
                 last_active = time.time()
+                seen_job = True
             last_history = count
         except Exception as e:  # ComfyUI restarting or down: don't count that as idle
             log(f"ComfyUI not reachable ({e.__class__.__name__}); timer reset")
@@ -92,9 +95,10 @@ def main():
         if keepalive.exists() and keepalive.stat().st_mtime > last_active:
             last_active = keepalive.stat().st_mtime
         idle_min = (time.time() - last_active) / 60
-        remaining = max(0.0, args.minutes - idle_min)
+        allowed = args.minutes if seen_job else max(args.minutes, args.grace)
+        remaining = max(0.0, allowed - idle_min)
         status.write_text(json.dumps({"idle_minutes": round(idle_min, 1), "stops_in_minutes": round(remaining, 1), "action": args.action, "checked": datetime.now().isoformat(timespec="seconds")}))
-        if idle_min >= args.minutes:
+        if idle_min >= allowed:
             log(f"idle for {idle_min:.1f} min; {args.action} now")
             stop_pod(args.action)
             sys.exit(0)
