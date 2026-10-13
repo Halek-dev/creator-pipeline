@@ -1,0 +1,200 @@
+<title>Creator Pipeline Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single column; each phase is a numbered block with a deliverables table and a "done when" line. */
+:root {
+  --bg: #F2F4F6; --surface: #FFFFFF; --ink: #15202B; --muted: #56636F; --line: #D5DCE2;
+  --accent: #0B6E8A; --accent-soft: #DCEEF3; --warn: #9A5B00; --warn-soft: #FBEFD9; --good: #1F7A4D; --good-soft: #DDF1E6;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0F151B; --surface: #172029; --ink: #E4EAEF; --muted: #98A6B2; --line: #2A3540;
+  --accent: #5CC3DE; --accent-soft: #15333D; --warn: #E9B25A; --warn-soft: #362A15; --good: #6FCF9C; --good-soft: #15301F; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0F151B; --surface: #172029; --ink: #E4EAEF; --muted: #98A6B2; --line: #2A3540;
+  --accent: #5CC3DE; --accent-soft: #15333D; --warn: #E9B25A; --warn-soft: #362A15; --good: #6FCF9C; --good-soft: #15301F; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 20px; padding-block: 48px 72px; display: grid; gap: 48px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.5rem; font-weight: 700; }
+h3 { font-size: 1.05rem; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--accent); }
+.eyebrow { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+header { display: grid; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 32px; }
+.lede { font-size: 1.12rem; color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 2px; }
+.stat b { font-family: var(--display); font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 0.85rem; color: var(--muted); }
+section { display: grid; gap: 16px; }
+.phase { display: grid; grid-template-columns: 3.2rem 1fr; gap: 16px; }
+.phase .n { font-family: var(--display); font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1; }
+.phase .body { display: grid; gap: 14px; min-width: 0; }
+.goal { color: var(--muted); }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.92rem; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-family: var(--mono); font-size: 0.82rem; white-space: nowrap; color: var(--muted); }
+td.name { font-family: var(--body); font-weight: 600; color: var(--ink); font-size: 0.92rem; white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; }
+.done { background: var(--good-soft); border-radius: 8px; padding: 10px 14px; font-size: 0.92rem; }
+.done b { color: var(--good); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.callout { background: var(--warn-soft); border-radius: 10px; padding: 14px 18px; display: grid; gap: 6px; }
+.callout .eyebrow { color: var(--warn); }
+ol.plain, ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 0.88rem; color: var(--muted); }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Creator pipeline · agreed 13 October 2026</div>
+  <h1>Motion swap roadmap</h1>
+  <p class="lede">A motion swap pipeline the whole team can use from a browser link, on a GPU we rent by the hour, producing clips we'd post without explaining them. Open models we control, paid models as options.</p>
+  <div class="stats">
+    <div class="stat"><b>23/25</b><span>best clip so far, photoreal, untuned</span></div>
+    <div class="stat"><b>~$0.08</b><span>per clip in pod sessions</span></div>
+    <div class="stat"><b>~4 wks</b><span>build time, all phases</span></div>
+    <div class="stat"><b>~$25</b><span>total test GPU spend</span></div>
+  </div>
+</header>
+
+<section>
+  <h2>Where we start</h2>
+  <p>Node pack, batch runner, validator and setup scripts are built and tested. Wan Animate 2 rendered three clips on a rented A40: a stylised sample (22/25) and a photoreal streetwear woman driven by a street-dance clip (23/25), about 7.5 minutes per 81-frame clip at 480×848. The INSTARAW livestream showed stills tooling only; their video answer is "pay Seedance". We are ahead on motion swap.</p>
+  <div class="callout">
+    <div class="eyebrow">Operating model</div>
+    <p>Rent a GPU by the hour (L40S recommended, ~$1/hr, ~4 min per clip), render in batches, and let the pod stop itself when idle. Serverless (pay per clip, nothing when idle) stays a later option; the same workflows run on both.</p>
+  </div>
+</section>
+
+<section class="phase">
+  <div class="n">0</div>
+  <div class="body">
+    <h2>Session foundations</h2>
+    <p class="goal">A fresh pod is usable in under five minutes and cannot waste money.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>Deliverable</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>0.1</td><td class="name">Network volume</td><td>100 GB holding all models (~60 GB by Phase 3). Pods mount it, nothing re-downloads. ~$7/month.</td></tr>
+        <tr><td>0.2</td><td class="name">Idle watchdog</td><td>Pod stops itself after 20 minutes with no jobs.</td></tr>
+        <tr><td>0.3</td><td class="name">Reliable web link</td><td>Tunnel started with ComfyUI; stable HTTPS link, no RunPod proxy 403.</td></tr>
+        <tr><td>0.4</td><td class="name">Boot smoke test</td><td>ComfyUI up, nodes loaded, models present, tiny render passes. Green/red summary.</td></tr>
+        <tr><td>0.5</td><td class="name">Linux fixes</td><td>Correct messages on Linux; jobs file is the primary batch input (avoids paste limits).</td></tr>
+      </tbody></table></div>
+    <div class="done"><b>Done when:</b> terminate → new pod → working link in under 5 minutes; left alone, it stops itself.</div>
+    <div class="meta"><span class="chip">2–3 days</span><span class="chip">test GPU ~$3</span></div>
+  </div>
+</section>
+
+<section class="phase">
+  <div class="n">1</div>
+  <div class="body">
+    <h2>Team app on the pod</h2>
+    <p class="goal">A non-technical teammate renders a clip from a link, with nothing to paste.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>Deliverable</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>1.1</td><td class="name">The app</td><td>Upload image and video, pick a preset, seeds (1–4), quality tier (Fast / Standard / High), Run.</td></tr>
+        <tr><td>1.2</td><td class="name">Queue and history</td><td>Status and progress; every job stores settings, seed and workflow version; download result and compare clip.</td></tr>
+        <tr><td>1.3</td><td class="name">Presets file</td><td>Name, character prompt, background, motion, knobs. Edited by you, no code. Six starters.</td></tr>
+        <tr><td>1.4</td><td class="name">Preflight checks</td><td>Image resolution and face visibility; video ≥81 frames, one person; aspect warnings. Plain messages.</td></tr>
+        <tr><td>1.5</td><td class="name">Job sheet mode</td><td>A sheet of many jobs → one click → overnight batch.</td></tr>
+        <tr><td>1.6</td><td class="name">Cost line</td><td>Estimated and actual GPU cost per job and per session.</td></tr>
+      </tbody></table></div>
+    <div class="done"><b>Done when:</b> someone with no instructions beyond "open this link" renders and downloads a clip; any clip is reproducible from history.</div>
+    <div class="meta"><span class="chip">3–4 days</span><span class="chip">test GPU ~$3</span></div>
+  </div>
+</section>
+
+<section class="phase">
+  <div class="n">2</div>
+  <div class="body">
+    <h2>Quality: beyond 23/25</h2>
+    <p class="goal">A clip you'd post without explaining it: 1080p, smooth, 5–10 seconds.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>Deliverable</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>2.1</td><td class="name">Input guide</td><td>Reference photo rules (sharp, 2K, full body, plain background) and driving video rules (stable camera, even light, 24 fps, no blur). In the app as hints.</td></tr>
+        <tr><td>2.2</td><td class="name">Multi-seed + contact sheet</td><td>3–4 seeds per job; auto contact sheet and face strip for picking in seconds.</td></tr>
+        <tr><td>2.3</td><td class="name">High tier</td><td>Full Wan Animate 2 model + lightx2v LoRA, 720p render. About 2× render time.</td></tr>
+        <tr><td>2.4</td><td class="name">Finishing chain</td><td>SeedVR2 video upscale ×2 → FILM interpolation 24→48 fps → Reality Finish. Second pass, toggle per job.</td></tr>
+        <tr><td>2.5</td><td class="name">Knob presets</td><td>"Identity hold" (reference strength 1.2–1.3) and "Motion looseness" (pose end 0.7) as sliders.</td></tr>
+        <tr><td>2.6</td><td class="name">Chaining</td><td>5–10 s clips by continuing motion across 81-frame chunks.</td></tr>
+      </tbody></table></div>
+    <div class="done"><b>Done when:</b> the photoreal test pair scores ≥24/25 at High tier; a 1080p, 48 fps, 8-second clip exports from the app.</div>
+    <div class="meta"><span class="chip">4–5 days</span><span class="chip">test GPU ~$8</span><span class="chip">+23 GB models</span></div>
+  </div>
+</section>
+
+<section class="phase">
+  <div class="n">3</div>
+  <div class="body">
+    <h2>Backgrounds: A, B and C</h2>
+    <p class="goal">Choose where the clip happens: described, the reference image's scene, or the original video's scene. Wan Animate 2 builds the background from text only, so each of these is a distinct route.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>Deliverable</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>3A</td><td class="name">Auto background prompt</td><td>A vision model describes the reference image (or a video frame) into a background prompt. App option: preset / from reference / from video / custom. About a day.</td></tr>
+        <tr><td>3B</td><td class="name">Replace inside the original video</td><td><b>SCAIL-2</b> (open, all core ComfyUI nodes): SAM3 tracks the person → mask → character swapped in → colour match. Keeps the real background, lighting and camera. 2–3 days, ~22 GB models.</td></tr>
+        <tr><td>3C</td><td class="name">Kling 3 Motion Control</td><td>Installed API node: animates the reference image in its own scene with the driving motion. Paid per clip via Comfy credits (~$20 to start). Shown as "Kling (paid)". About a day.</td></tr>
+        <tr><td>3.4</td><td class="name">Three-way comparison</td><td>Same input pair through Wan Animate 2, SCAIL-2 and Kling; scorecard filled; recommendation per use case.</td></tr>
+      </tbody></table></div>
+    <div class="done"><b>Done when:</b> any of the four background modes can be picked from the app; the comparison document exists.</div>
+    <div class="meta"><span class="chip">5–7 days</span><span class="chip">test GPU ~$8</span><span class="chip warn">Kling credits ~$20</span></div>
+  </div>
+</section>
+
+<section class="phase">
+  <div class="n">4</div>
+  <div class="body">
+    <h2>Hardening and handoff</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>Deliverable</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>4.1</td><td class="name">Team guide</td><td>Start a pod, open the link, pick a preset, download, stop. One page with screenshots.</td></tr>
+        <tr><td>4.2</td><td class="name">Pinned versions</td><td>ComfyUI commit, node pack, models, and an update procedure.</td></tr>
+        <tr><td>4.3</td><td class="name">Cost summary</td><td>Monthly totals from job history.</td></tr>
+        <tr><td>4.4</td><td class="name">Optional</td><td>"Start pod" button in the app (RunPod API); serverless deployment documented.</td></tr>
+      </tbody></table></div>
+    <div class="meta"><span class="chip">2–3 days</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Risks</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Hands smear in fast motion</td><td>Model ceiling; some choreography stays imperfect</td><td>Multi-seed picking, slower moves, High tier; set expectations</td></tr>
+      <tr><td class="name">SCAIL-2 needs a recent ComfyUI</td><td>3B blocked until updated</td><td>Pin a version that has it; checked by the boot smoke test</td></tr>
+      <tr><td class="name">GPU sold out</td><td>Session delayed</td><td>Volume in a region with several GPU types; A40 fallback</td></tr>
+      <tr><td class="name">Platform policy</td><td>Account bans (impersonation, unlabeled AI, motion-control shadowbans)</td><td>Original characters only; consent for real people; label AI content; vary content types</td></tr>
+      <tr><td class="name">Maintenance</td><td>Breakage after updates</td><td>Pinned versions, smoke test, update procedure</td></tr>
+    </tbody></table></div>
+</section>
+
+<section>
+  <h2>Decisions needed</h2>
+  <ol class="plain">
+    <li>Default GPU: <b>L40S</b> (recommended) or A40.</li>
+    <li>Approve ~$20 of Comfy credits when Phase 3C starts.</li>
+    <li>Starter presets: six drafted; you edit names and looks.</li>
+    <li>One teammate to test each phase.</li>
+  </ol>
+  <p class="goal">Out of scope for now: public web app with logins, desktop installer, LoRA training for Wan Animate 2 (unproven), lip-sync.</p>
+</section>
+
+<footer>Source of truth: <code>docs/ROADMAP.md</code> in the creator-pipeline repository. This page is the shareable copy.</footer>
+</div>
