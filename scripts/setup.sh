@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Set up ComfyUI + the creator node pack on a Linux GPU machine (RunPod, Vast.ai, Colab).
 #
-#   bash scripts/setup.sh                    # install
-#   bash scripts/setup.sh wan-animate-2      # install and download a model profile (see models.json)
-#   bash scripts/start.sh                    # then start ComfyUI
+#   bash scripts/setup.sh                                        # install
+#   bash scripts/setup.sh wan-animate-2                          # install and download a model profile (see models.json)
+#   bash scripts/setup.sh wan-animate-2 wan-animate-2-full finishing   # several profiles (High tier + Finish option)
+#   bash scripts/start.sh                                        # then start ComfyUI
 #
 # Persistent data: if a RunPod network volume is mounted at /workspace, models, inputs, outputs and the
 # Python environment live there (/workspace/creator-data), so a fresh pod is ready in a couple of minutes
@@ -55,7 +56,7 @@ echo "Installing ComfyUI and app packages (a few minutes)..."
 [ -e ComfyUI/custom_nodes/creator_nodes ] || ln -s "$ROOT/creator_nodes" ComfyUI/custom_nodes/creator_nodes
 chmod +x scripts/*.sh
 
-if [ $# -ge 1 ]; then "$VENV/bin/python" tools/download_models.py "$1"; fi
+for profile in "$@"; do "$VENV/bin/python" tools/download_models.py "$profile"; done
 
 echo
 echo "Done. Start ComfyUI with: bash scripts/start.sh"

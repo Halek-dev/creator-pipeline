@@ -76,6 +76,8 @@ Goal: a clip you would post without explaining it; 1080p, smooth, 5–10 s.
 
 Done when: the Run A pair scores ≥24/25 at High tier on the scorecard; a 1080p 48 fps 8-second clip exports from the app.
 
+Status 14 Oct 2026: all six items built and unit-tested (34 tests); every workflow variant accepted by ComfyUI structurally; the app exposes tier, length (1–3 passes), Finish and per-seed contact sheets; [INPUT_GUIDE.md](INPUT_GUIDE.md) written. GPU verification pending: one session with the `wan-animate-2-full` and `finishing` profiles.
+
 Effort: 4–5 days. Test cost: ~$8. Downloads: +16.5 GB (full model) +6 GB (SeedVR2) +0.5 GB (FILM).
 
 ---

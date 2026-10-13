@@ -35,7 +35,7 @@ Deploy, wait for **Running**, open the **web terminal** from the Connect tab.
 git clone https://github.com/Halek-dev/creator-pipeline.git && cd creator-pipeline && bash scripts/setup.sh wan-animate-2 && bash scripts/start.sh
 ```
 
-`setup.sh` installs a pinned ComfyUI, links our node pack, and downloads the four model files plus the sample inputs into the volume (skipped when already there). `start.sh` then:
+`setup.sh` installs a pinned ComfyUI, links our node pack, and downloads the four model files plus the sample inputs into the volume (skipped when already there). For the **High** tier and the **Finish** option add their models once: `bash scripts/setup.sh wan-animate-2-full finishing` (about 21 GB, kept on the volume). `start.sh` then:
 
 - starts ComfyUI and the **team app** in the background (both survive closing the terminal),
 - opens a **public link for the team app** (`https://....trycloudflare.com`) and prints it: share this with the team. A second link opens ComfyUI itself for advanced use,

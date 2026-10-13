@@ -45,6 +45,7 @@ def main():
     parser.add_argument("--port", type=int, default=8188)
     parser.add_argument("--server", default=None)
     parser.add_argument("--profiles", nargs="*", default=["wan-animate-2"], help="Model profiles that must be present")
+    parser.add_argument("--optional-profiles", nargs="*", default=["wan-animate-2-full", "finishing"], help="Reported, not required (High tier, Finish)")
     args = parser.parse_args()
     server = args.server or f"http://127.0.0.1:{args.port}"
     rep = Report()
@@ -69,16 +70,25 @@ def main():
 
     profiles = json.loads((ROOT / "models.json").read_text(encoding="utf-8"))
     models_dir = ROOT / "ComfyUI" / "models"
-    for name in args.profiles:
-        if name not in profiles:
-            rep.line(False, f"Profile {name}", "unknown profile")
-            continue
+    def missing_files(name):
         absent = []
         for f in profiles[name]["files"]:
             p = models_dir / f["dir"] / f["url"].rsplit("/", 1)[-1]
             if not p.exists() or p.stat().st_size < 1_000_000:
                 absent.append(p.name)
+        return absent
+
+    for name in args.profiles:
+        if name not in profiles:
+            rep.line(False, f"Profile {name}", "unknown profile")
+            continue
+        absent = missing_files(name)
         rep.line(not absent, f"Models: {name}", "all present" if not absent else "missing: " + ", ".join(absent))
+    for name in args.optional_profiles:
+        if name not in profiles:
+            continue
+        absent = missing_files(name)
+        rep.line(not absent, f"Models: {name} (optional)", "all present" if not absent else f"not installed: bash scripts/setup.sh {name}", required=False)
 
     # Tiny render through our own nodes: proves the queue, the node pack and file saving work.
     try:
