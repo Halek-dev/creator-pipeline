@@ -141,9 +141,13 @@ def build(model="distilled", chunks=1, finishing=False, base=None):
 def main():
     out = ROOT / "workflows"
     base = load_base()
+    def write(path, wf):
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
+
     if "audio" not in base[by_title(base)["Video"]]["inputs"]:
         with_audio(base)
-        BASE.write_text(json.dumps(base, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        write(BASE, base)
         print("updated", BASE.name, "(audio passthrough)")
     for name, kw in {
         "wan_animate2_high.json": {"model": "full"},
@@ -151,7 +155,7 @@ def main():
         "wan_animate2_finish.json": {"finishing": True},
     }.items():
         wf = build(**kw)
-        (out / name).write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        write(out / name, wf)
         print("wrote", name, f"({len(wf)} nodes)")
 
 
