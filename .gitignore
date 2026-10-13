@@ -6,3 +6,6 @@ __pycache__/
 *.safetensors
 *.part
 comfy.log
+logs/
+data/
+bin/

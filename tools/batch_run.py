@@ -101,7 +101,8 @@ def request(server: str, path: str, payload: dict | None = None):
         body = e.read().decode(errors="replace")
         raise RuntimeError(f"ComfyUI rejected the request ({e.code}): {body}") from None
     except urllib.error.URLError:
-        raise SystemExit(f"Can't reach ComfyUI at {server}. Start it first (scripts/start.ps1).") from None
+        start = "scripts\\start.ps1 -Cpu" if sys.platform == "win32" else "bash scripts/start.sh"
+        raise SystemExit(f"Can't reach ComfyUI at {server}. Start it first ({start}).") from None
 
 
 def collect_outputs(history_entry: dict) -> list[str]:
