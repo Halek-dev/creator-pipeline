@@ -49,7 +49,8 @@ if ! "$VENV/bin/python" -c "import torch, sys; assert sys.version_info[:2] == tu
     "$VENV/bin/python" -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 fi
 [ -L .venv ] || [ -d .venv ] || ln -s "$VENV" .venv
-"$VENV/bin/python" -m pip install -q -r ComfyUI/requirements.txt -r app/requirements.txt
+echo "Installing ComfyUI and app packages (a few minutes)..."
+"$VENV/bin/python" -m pip install --progress-bar off -r ComfyUI/requirements.txt -r app/requirements.txt | grep -E "^(Collecting|Successfully|ERROR)" || true
 
 [ -e ComfyUI/custom_nodes/creator_nodes ] || ln -s "$ROOT/creator_nodes" ComfyUI/custom_nodes/creator_nodes
 chmod +x scripts/*.sh

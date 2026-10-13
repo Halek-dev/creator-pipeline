@@ -69,7 +69,17 @@ def on_tier(name, seeds):
     return f"{t.get('note', '')} · about {est:.0f} min and ${est / 60 * J.GPU_HOURLY_USD:.2f} for {int(seeds)} seed(s)"
 
 
+def touch_keepalive():
+    """Someone is preparing a job: tell the idle watchdog not to stop the pod meanwhile."""
+    try:
+        J.LOGS.mkdir(exist_ok=True)
+        (J.LOGS / "keepalive").touch()
+    except OSError:
+        pass
+
+
 def on_preflight(image, video):
+    touch_keepalive()
     ok, msgs = J.preflight(image, video)
     return ("**Ready.**\n\n" if ok else "**Fix before running.**\n\n") + "\n\n".join(f"- {m}" for m in msgs)
 
