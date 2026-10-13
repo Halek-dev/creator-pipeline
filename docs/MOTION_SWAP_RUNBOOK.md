@@ -37,8 +37,8 @@ git clone https://github.com/Halek-dev/creator-pipeline.git && cd creator-pipeli
 
 `setup.sh` installs a pinned ComfyUI, links our node pack, and downloads the four model files plus the sample inputs into the volume (skipped when already there). `start.sh` then:
 
-- starts ComfyUI in the background (survives closing the terminal),
-- opens a **public link** (`https://....trycloudflare.com`) and prints it: share this with the team,
+- starts ComfyUI and the **team app** in the background (both survive closing the terminal),
+- opens a **public link for the team app** (`https://....trycloudflare.com`) and prints it: share this with the team. A second link opens ComfyUI itself for advanced use,
 - starts the **idle watchdog**: the pod stops itself after 20 minutes with no jobs (`IDLE_MINUTES=45 bash scripts/start.sh` to change, `IDLE_MINUTES=0` to disable),
 - runs the **smoke test** and prints `RESULT: READY` when nodes, models and a tiny render all pass.
 
@@ -56,6 +56,8 @@ Outputs land in `ComfyUI/output/motion_swap/` (on the volume):
 - `compare_*.mp4`: result on the left, driving video on the right, for scoring
 
 ## 6. Your own clips
+
+Easiest: open the team app link, upload the image and video there, pick a preset, press Run, and download from the Jobs tab. The terminal route below does the same thing without the app.
 
 Upload the reference image and driving video to `ComfyUI/input/` (Jupyter on port 8888 → file browser → `creator-data/input` → upload). Then:
 

@@ -34,6 +34,8 @@ Goal: a fresh pod is usable in under 5 minutes and cannot waste money.
 
 Done when: terminate pod → new pod → working link in under 5 minutes; leave it alone → it stops itself; cost visible in RunPod matches the session.
 
+Status 13 Oct 2026: code complete, smoke test and watchdog verified on the laptop; pod verification pending.
+
 Effort: 2–3 days. Test cost: ~$3.
 
 ---
@@ -52,6 +54,8 @@ Goal: a non-technical teammate renders a clip from a link, with nothing to paste
 | 1.6 | Cost line | Estimated and actual GPU cost per job and per session, shown in the app. |
 
 Done when: a teammate with no instructions beyond "open this link" renders and downloads a clip; every clip's settings can be reproduced from history.
+
+Status 13 Oct 2026: app, job engine, presets and job sheet built; 25 unit tests pass; end-to-end job path exercised on the laptop; pod verification (real render through the app) pending.
 
 Effort: 3–4 days. Test cost: ~$3.
 

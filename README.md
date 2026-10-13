@@ -65,6 +65,14 @@ bash scripts/setup.sh wan-animate-2       # models + sample inputs
 .venv/bin/python tools/batch_run.py workflows/wan_animate2.json --count 1
 ```
 
+## Team app
+
+`bash scripts/start.sh` also starts the team app on port 7860 and prints a public link for it. Upload a reference image and a driving video, pick a character and scene preset, a quality tier and how many seeds, press Run. The Jobs tab shows progress, previews, downloads and cost; every job's settings are stored on the volume (`ComfyUI/output/_jobs/`). Presets live in [app/presets.yaml](app/presets.yaml) and can be edited without touching code. A CSV "job sheet" queues many clips at once.
+
+```bash
+.venv/bin/python app/app.py     # run the app on its own (ComfyUI must be up)
+```
+
 ## Batch runner
 
 Address any input as `"<node title>.<input>"` (titles are the `_meta.title` values in the API workflow).
