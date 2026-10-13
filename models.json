@@ -34,6 +34,14 @@
       "https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/street_dance_drive.mp4"
     ]
   },
+  "finishing": {
+    "description": "Finishing pass: SeedVR2 3B int8 video upscale + FILM frame interpolation. About 4 GB. Used by the High-quality 'Finish' option.",
+    "files": [
+      { "url": "https://huggingface.co/Comfy-Org/SeedVR2/resolve/main/diffusion_models/seedvr2_3b_int8_convrot.safetensors", "dir": "diffusion_models" },
+      { "url": "https://huggingface.co/Comfy-Org/SeedVR2/resolve/main/vae/seedvr2_ema_vae_fp16.safetensors", "dir": "vae" },
+      { "url": "https://huggingface.co/Comfy-Org/frame_interpolation/resolve/main/frame_interpolation/film_net_fp16.safetensors", "dir": "frame_interpolation" }
+    ]
+  },
   "wan-animate-2-full": {
     "description": "Wan Animate 2 full model (int8) + lightx2v distill LoRA. Same VRAM as the distilled profile; higher quality, slower. Install wan-animate-2 first; this adds about 16.5 GB.",
     "files": [
