@@ -20,9 +20,26 @@ def request(server, path, payload=None, timeout=30):
             return json.loads(resp.read() or b"{}")
     except urllib.error.HTTPError as e:
         body = e.read().decode(errors="replace")
-        raise ComfyError(f"ComfyUI rejected the request ({e.code}): {body}") from None
+        raise ComfyError(_rejection_message(e.code, body)) from None
     except urllib.error.URLError as e:
         raise ComfyError(f"Can't reach ComfyUI at {server}: {e.reason}") from None
+
+
+def _rejection_message(code, body):
+    """Turn ComfyUI's validation JSON into one readable sentence, e.g. which node and input failed."""
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return f"ComfyUI rejected the request ({code}): {body[:300]}"
+    parts = []
+    for node_id, err in (data.get("node_errors") or {}).items():
+        title = err.get("class_type", node_id)
+        for e in err.get("errors", []):
+            detail = e.get("details") or ""
+            parts.append(f"{title}: {e.get('message', '')}{' (' + detail[:120] + ')' if detail else ''}")
+    if not parts:
+        parts.append((data.get("error") or {}).get("message") or body[:300])
+    return "ComfyUI rejected the job. " + " | ".join(parts[:3])
 
 
 def _find_node(workflow, node_ref):
