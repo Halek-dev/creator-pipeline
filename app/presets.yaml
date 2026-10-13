@@ -1,0 +1,70 @@
+# Presets for the team app. Edit freely; the app reloads this file on every page load.
+#
+# characters: who. Looks only, no motion words. The reference image still decides the face;
+#             this text helps the model keep outfit and style consistent.
+# scenes:     where and how. Background and lighting are generated from this text (the model
+#             ignores both inputs' backgrounds). "motion" is the default description of what the
+#             person does; the app lets you edit it per job.
+# tiers:      speed/quality trade-off. High is experimental until Phase 2 (full model) lands.
+
+characters:
+  Streetwear woman (sample):
+    appearance: a young woman with dark hair in a high bun, black long-sleeve crop top with a shoulder cutout, black wide-leg cargo pants, black chunky boots, full body from head to toe
+  Pink-hair character (sample):
+    appearance: a young woman with pink shoulder-length hair, black cropped jacket with gold buttons, black shorts with belts and straps, black boots, full body from head to toe
+  Our character (edit me):
+    appearance: describe outfit, hair and build here; keep it to looks, no motion
+
+scenes:
+  Studio:
+    background: a bright photo studio with a plain light grey backdrop and soft even lighting
+    motion: a person dancing with clear arm and leg movements
+    identity_hold: 1.0
+    motion_looseness: 1.0
+  Street night:
+    background: a rainy neon-lit city street at night, wet asphalt reflecting purple and red signs, light mist, cinematic
+    motion: a person doing energetic street dance with quick footwork and big arm moves
+    identity_hold: 1.1
+    motion_looseness: 1.0
+  Gallery:
+    background: a modern art gallery with large colourful paintings on white walls, soft gallery lighting
+    motion: a person dancing casually, swaying the hips and moving the arms
+    identity_hold: 1.0
+    motion_looseness: 0.9
+  Beach golden hour:
+    background: a quiet sandy beach at golden hour, gentle waves behind, warm low sun, slight lens flare
+    motion: a person dancing playfully with relaxed movements
+    identity_hold: 1.0
+    motion_looseness: 1.0
+  Apartment daylight:
+    background: a bright modern apartment living room with big windows, wooden floor, soft daylight, phone-camera look
+    motion: a person dancing in a living room, casual and natural
+    identity_hold: 1.1
+    motion_looseness: 0.9
+  Gym:
+    background: a modern gym with dark rubber floor, mirrors and overhead lights, slightly cool colour tone
+    motion: a person doing an energetic dance workout with fast arm movements
+    identity_hold: 1.0
+    motion_looseness: 1.0
+
+tiers:
+  Fast:
+    width: 480
+    height: 848
+    steps: 6
+    minutes_per_clip: 3
+    note: quick preview, softer
+  Standard:
+    width: 480
+    height: 848
+    steps: 10
+    minutes_per_clip: 4.5
+    note: what we tested (23/25)
+  High:
+    width: 720
+    height: 1280
+    steps: 12
+    minutes_per_clip: 10
+    note: experimental until Phase 2; needs a 48 GB GPU
+
+negative_prompt: 色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走

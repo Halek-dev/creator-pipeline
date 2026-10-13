@@ -20,11 +20,12 @@ import json
 import random
 import sys
 import time
-import urllib.error
-import urllib.request
 import uuid
 from datetime import datetime
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from comfy_client import DEFAULT_SERVER, ComfyError, collect_outputs, error_message, poll, queue_prompt, set_input, start_hint  # noqa: E402
 
 
 def parse_value(raw: str):
@@ -39,27 +40,6 @@ def split_assignment(text: str) -> tuple[str, str]:
         raise SystemExit(f'Expected KEY=VALUE, got "{text}"')
     key, value = text.split("=", 1)
     return key.strip(), value
-
-
-def resolve(workflow: dict, key: str) -> tuple[str, str]:
-    """Turn "Node title.input" or "12.input" into (node_id, input_name)."""
-    if "." not in key:
-        raise SystemExit(f'"{key}" must look like "Node title.input_name"')
-    node_ref, input_name = key.rsplit(".", 1)
-    if node_ref in workflow:
-        node_id = node_ref
-    else:
-        matches = [nid for nid, n in workflow.items() if n.get("_meta", {}).get("title") == node_ref]
-        if not matches:
-            titles = sorted({n.get("_meta", {}).get("title", "?") for n in workflow.values()})
-            raise SystemExit(f'No node titled "{node_ref}". Titles in this workflow: {", ".join(titles)}')
-        if len(matches) > 1:
-            raise SystemExit(f'{len(matches)} nodes are titled "{node_ref}" (ids {matches}). Use the id instead.')
-        node_id = matches[0]
-    if input_name not in workflow[node_id]["inputs"]:
-        known = ", ".join(workflow[node_id]["inputs"])
-        raise SystemExit(f'Node "{node_ref}" has no input "{input_name}". It has: {known}')
-    return node_id, input_name
 
 
 def build_jobs(args, workflow: dict) -> list[dict]:
@@ -85,34 +65,12 @@ def build_jobs(args, workflow: dict) -> list[dict]:
 
         job = copy.deepcopy(workflow)
         for key, value in values.items():
-            node_id, input_name = resolve(job, key)
-            job[node_id]["inputs"][input_name] = value
+            try:
+                set_input(job, key, value)
+            except ComfyError as e:
+                raise SystemExit(str(e)) from None
         jobs.append({"values": values, "prompt": job})
     return jobs
-
-
-def request(server: str, path: str, payload: dict | None = None):
-    data = json.dumps(payload).encode() if payload is not None else None
-    req = urllib.request.Request(server + path, data=data, headers={"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read() or b"{}")
-    except urllib.error.HTTPError as e:
-        body = e.read().decode(errors="replace")
-        raise RuntimeError(f"ComfyUI rejected the request ({e.code}): {body}") from None
-    except urllib.error.URLError:
-        start = "scripts\\start.ps1 -Cpu" if sys.platform == "win32" else "bash scripts/start.sh"
-        raise SystemExit(f"Can't reach ComfyUI at {server}. Start it first ({start}).") from None
-
-
-def collect_outputs(history_entry: dict) -> list[str]:
-    files = []
-    for node_out in history_entry.get("outputs", {}).values():
-        for kind in ("images", "gifs", "videos"):
-            for f in node_out.get(kind, []):
-                if f.get("type") == "output":
-                    files.append(str(Path(f.get("subfolder", "")) / f["filename"]))
-    return files
 
 
 def main():
@@ -124,7 +82,7 @@ def main():
     parser.add_argument("--random", action="append", default=[], metavar="KEY", help="New random seed per run")
     parser.add_argument("--random-seed", type=int, default=None, help="Make --random values repeatable")
     parser.add_argument("--jobs", help="JSONL file: one object of KEY: value overrides per run")
-    parser.add_argument("--server", default="http://127.0.0.1:8188")
+    parser.add_argument("--server", default=DEFAULT_SERVER)
     parser.add_argument("--timeout", type=float, default=3600, help="Max seconds to wait for the whole batch")
     parser.add_argument("--dry-run", action="store_true", help="Print the runs without queueing them")
     args = parser.parse_args()
@@ -139,12 +97,16 @@ def main():
             print(f"run {i}: {json.dumps(job['values'])}")
         return
 
-    server = args.server.rstrip("/")
     client_id = str(uuid.uuid4())
-    for i, job in enumerate(jobs, 1):
-        resp = request(server, "/prompt", {"prompt": job["prompt"], "client_id": client_id})
-        job["prompt_id"] = resp["prompt_id"]
-        print(f"queued {i}/{len(jobs)}  {json.dumps(job['values'])}")
+    try:
+        for i, job in enumerate(jobs, 1):
+            job["prompt_id"] = queue_prompt(args.server, job["prompt"], client_id)
+            print(f"queued {i}/{len(jobs)}  {json.dumps(job['values'])}")
+    except ComfyError as e:
+        msg = str(e)
+        if "Can't reach" in msg:
+            msg += f". Start it first ({start_hint()})."
+        raise SystemExit(msg) from None
 
     start = time.time()
     pending = {job["prompt_id"]: job for job in jobs}
@@ -154,19 +116,14 @@ def main():
             break
         time.sleep(1.0)
         for prompt_id in list(pending):
-            history = request(server, f"/history/{prompt_id}")
-            entry = history.get(prompt_id)
-            if not entry:
-                continue
-            status = entry.get("status", {})
-            if not status.get("completed") and status.get("status_str") != "error":
+            entry = poll(args.server, prompt_id)
+            if entry is None:
                 continue
             job = pending.pop(prompt_id)
             job["status"] = entry["status"].get("status_str", "unknown")
             job["outputs"] = collect_outputs(entry)
             if job["status"] == "error":
-                messages = [m for m in entry["status"].get("messages", []) if m[0] == "execution_error"]
-                job["error"] = messages[-1][1].get("exception_message", "") if messages else "unknown error"
+                job["error"] = error_message(entry)
             done = len(jobs) - len(pending)
             detail = ", ".join(job["outputs"]) or job.get("error", "")
             print(f"[{done}/{len(jobs)}] {job['status']:<7} {time.time() - start:6.1f}s  {detail}")
