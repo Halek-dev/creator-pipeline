@@ -113,6 +113,13 @@ def refresh_jobs():
 
 
 def on_select_job(ids, evt: gr.SelectData):
+    try:
+        return job_details(ids, evt)
+    except Exception as e:  # never show Gradio's red "Error" bubbles for a bad row
+        return f"Couldn't load this job: {e.__class__.__name__}: {e}", None, []
+
+
+def job_details(ids, evt):
     if not ids or evt.index is None:
         return "", None, []
     job = J.load_job(ids[evt.index[0]])
@@ -226,4 +233,6 @@ def build():
 
 
 if __name__ == "__main__":
-    build().queue().launch(server_name="0.0.0.0", server_port=int(os.environ.get("APP_PORT", "7860")), show_api=False)
+    # ComfyUI/output usually points at the network volume, outside the app folder; Gradio must be told it may serve from there.
+    allowed = [str(J.COMFY_OUTPUT), str(J.COMFY_OUTPUT.resolve()), str(J.COMFY_INPUT.resolve())]
+    build().queue().launch(server_name="0.0.0.0", server_port=int(os.environ.get("APP_PORT", "7860")), show_api=False, allowed_paths=allowed)
