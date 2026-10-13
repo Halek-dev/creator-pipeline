@@ -52,19 +52,19 @@ tiers:
     width: 480
     height: 848
     steps: 6
-    minutes_per_clip: 3
+    minutes_per_clip: 4
     note: quick preview, softer
   Standard:
     width: 480
     height: 848
     steps: 10
-    minutes_per_clip: 4.5
-    note: what we tested (23/25)
+    minutes_per_clip: 6
+    note: what we tested (23/25); measured 5.3-6.7 min per seed on an RTX PRO 4500
   High:
     width: 720
     height: 1280
     steps: 12
-    minutes_per_clip: 10
+    minutes_per_clip: 13
     note: experimental until Phase 2; needs a 48 GB GPU
 
 negative_prompt: 色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走

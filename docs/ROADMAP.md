@@ -34,7 +34,7 @@ Goal: a fresh pod is usable in under 5 minutes and cannot waste money.
 
 Done when: terminate pod → new pod → working link in under 5 minutes; leave it alone → it stops itself; cost visible in RunPod matches the session.
 
-Status 13 Oct 2026: code complete, smoke test and watchdog verified on the laptop; pod verification pending.
+**Done, 14 Oct 2026.** Verified on RunPod (RTX PRO 4500, EU-RO-1, network volume `creator-data`): second pod from clone to READY in ~2 minutes with models and environment reused; public links via tunnel; watchdog terminated an idle pod for real (which led to the 45-minute first-job grace); smoke test green.
 
 Effort: 2–3 days. Test cost: ~$3.
 
@@ -55,7 +55,7 @@ Goal: a non-technical teammate renders a clip from a link, with nothing to paste
 
 Done when: a teammate with no instructions beyond "open this link" renders and downloads a clip; every clip's settings can be reproduced from history.
 
-Status 13 Oct 2026: app, job engine, presets and job sheet built; 25 unit tests pass; end-to-end job path exercised on the laptop; pod verification (real render through the app) pending.
+**Done, 14 Oct 2026.** Job `20261013-225300-fbb6` rendered through the app on the pod (Streetwear woman · Studio · Standard · 2 seeds, 400 s + 318 s, actual $0.20); Jobs tab shows settings, workflow version, cost, preview and downloads. One bug found and fixed on the spot (Gradio needed `allowed_paths` for the volume). See [TEST_LOG.md](TEST_LOG.md).
 
 Effort: 3–4 days. Test cost: ~$3.
 
