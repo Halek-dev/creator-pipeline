@@ -148,12 +148,12 @@ footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 0.88re
       <tbody>
         <tr><td>3A</td><td class="name">Auto background prompt</td><td>A vision model describes the reference image (or a video frame) into a background prompt. App option: preset / from reference / from video / custom. About a day.</td></tr>
         <tr><td>3B</td><td class="name">Replace inside the original video</td><td><b>SCAIL-2</b> (open, all core ComfyUI nodes): SAM3 tracks the person → mask → character swapped in → colour match. Keeps the real background, lighting and camera. 2–3 days, ~22 GB models.</td></tr>
-        <tr><td>3C</td><td class="name">Kling 3 Motion Control</td><td>Installed API node: animates the reference image in its own scene with the driving motion. Paid per clip via Comfy credits. Shown as "Kling (paid)". About a day.</td></tr>
-        <tr><td>3D</td><td class="name">Seedance 2.5 Reference to Video</td><td>Installed API node: reference image(s) + reference video + prompt, 1080p with generated audio. The route INSTARAW recommends; closed and per-clip, so it's our paid benchmark. About a day.</td></tr>
-        <tr><td>3.5</td><td class="name">Four-way comparison</td><td>Same input pair through Wan Animate 2, SCAIL-2, Kling 3 and Seedance 2.5; scorecard and cost per clip; recommendation per use case.</td></tr>
+        <tr><td>3C</td><td class="name">Seedance 2.5 Reference to Video</td><td>Installed API node: reference image(s) + reference video + prompt, 1080p with generated audio. The route INSTARAW recommends; closed and per-clip, so it's our paid benchmark next to the open models. Shown as "Seedance (paid)". About a day.</td></tr>
+        <tr><td>3.4</td><td class="name">Three-way comparison</td><td>Same input pair through Wan Animate 2 and SCAIL-2 (open) and Seedance 2.5 (paid); scorecard and cost per clip; recommendation per use case.</td></tr>
       </tbody></table></div>
+    <p class="goal">Kling 3 Motion Control is deferred (13 Oct decision). The node is installed; adding it later is about a day.</p>
     <div class="done"><b>Done when:</b> any background mode or engine can be picked from the app; the comparison document exists.</div>
-    <div class="meta"><span class="chip">6–8 days</span><span class="chip">test GPU ~$8</span><span class="chip warn">Comfy credits ~$30 (Kling, Seedance)</span></div>
+    <div class="meta"><span class="chip">5–6 days</span><span class="chip">test GPU ~$8</span><span class="chip warn">Seedance credits ~$15–20</span></div>
   </div>
 </section>
 
@@ -180,7 +180,7 @@ footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 0.88re
     <tbody>
       <tr><td class="name">Hands smear in fast motion</td><td>Model ceiling; some choreography stays imperfect</td><td>Multi-seed picking, slower moves, High tier; set expectations</td></tr>
       <tr><td class="name">ComfyUI version drift</td><td>New nodes (SCAIL-2, SeedVR2, FILM) could change on update</td><td>Verified present in our pinned build (11 Oct 2026); boot smoke test re-checks</td></tr>
-      <tr><td class="name">Paid engines change price or API</td><td>Kling / Seedance cost drift</td><td>Cost shown per job; both optional next to the open models</td></tr>
+      <tr><td class="name">Seedance price or API changes</td><td>Phase 3C cost drift</td><td>Cost shown per job; optional next to the open models</td></tr>
       <tr><td class="name">GPU sold out</td><td>Session delayed</td><td>Volume in a region with several GPU types; A40 fallback</td></tr>
       <tr><td class="name">Platform policy</td><td>Account bans (impersonation, unlabeled AI, motion-control shadowbans)</td><td>Original characters only; consent for real people; label AI content; vary content types</td></tr>
       <tr><td class="name">Maintenance</td><td>Breakage after updates</td><td>Pinned versions, smoke test, update procedure</td></tr>
@@ -188,14 +188,14 @@ footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 0.88re
 </section>
 
 <section>
-  <h2>Decisions needed</h2>
+  <h2>Decisions made (13 October 2026)</h2>
   <ol class="plain">
-    <li>Default GPU: <b>L40S</b> (recommended) or A40.</li>
-    <li>Approve ~$30 of Comfy credits when Phase 3C/3D (Kling, Seedance) starts.</li>
-    <li>Starter presets: six drafted; you edit names and looks.</li>
-    <li>One teammate to test each phase.</li>
+    <li>Default GPU: <b>L40S</b>.</li>
+    <li>Paid engine: <b>Seedance 2.5 only</b>, ~$15–20 Comfy credits when Phase 3 starts. Kling deferred.</li>
+    <li>Starter presets: six drafted; you rename and adjust.</li>
+    <li>Tester for every phase: you.</li>
   </ol>
-  <p class="goal">Out of scope for now: public web app with logins, desktop installer, LoRA training for Wan Animate 2 (unproven), lip-sync.</p>
+  <p class="goal">Out of scope for now: public web app with logins, desktop installer, LoRA training for Wan Animate 2 (unproven), lip-sync, Kling 3 Motion Control (deferred).</p>
 </section>
 
 <footer>Source of truth: <code>docs/ROADMAP.md</code> in the creator-pipeline repository. This page is the shareable copy.</footer>

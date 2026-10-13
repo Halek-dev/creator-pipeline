@@ -84,13 +84,14 @@ Goal: choose where the clip happens: described, the reference image's scene, or 
 |---|---|---|
 | 3A | Auto background prompt | A vision model describes the reference image's scene (or a driving-video frame) into a background prompt. App option: "Background: preset / from reference image / from video / custom". ~1 day. |
 | 3B | Replace inside the original video | **SCAIL-2 int8** workflow (all core ComfyUI nodes): SAM3 tracks the person in the driving video → mask → `WanSCAILToVideo` with the DPO LoRA → colour transfer to match the original. Keeps the real background, lighting and camera. 2–3 days. Models: ~22 GB. |
-| 3C | Kling 3 Motion Control | API workflow using the installed `KlingMotionControl` node: reference image in its own scene + driving video. Paid per clip via Comfy credits (your account, ~$20 to start). Shown in the app as "Kling (paid)". ~1 day. |
-| 3D | Seedance 2.5 Reference to Video | API workflow using the installed `ByteDance Seedance 2.5 Reference to Video` node: reference image(s) + reference video + prompt, 1080p, with generated audio. This is the route INSTARAW recommends; it's closed and per-clip, so it's our paid benchmark. Same credits as 3C. ~1 day. |
-| 3.5 | Four-way comparison | Same input pair through Wan Animate 2, SCAIL-2, Kling 3 and Seedance 2.5; scorecard filled, cost per clip noted; written recommendation per use case. |
+| 3C | Seedance 2.5 Reference to Video | API workflow using the installed `ByteDance Seedance 2.5 Reference to Video` node: reference image(s) + reference video + prompt, 1080p, with generated audio. This is the route INSTARAW recommends; it's closed and per-clip, so it's our paid benchmark next to the open models. Comfy credits ~$15–20 (your account). Shown in the app as "Seedance (paid)". ~1 day. |
+| 3.4 | Three-way comparison | Same input pair through Wan Animate 2 and SCAIL-2 (open) and Seedance 2.5 (paid); scorecard filled, cost per clip noted; written recommendation per use case. |
+
+Kling 3 Motion Control is deferred (decision 13 Oct 2026). The node is installed; adding it later is about a day.
 
 Done when: a teammate can pick any background mode or engine from the app and get a clip; the comparison doc exists.
 
-Effort: 6–8 days. Test cost: ~$8 GPU + ~$30 Comfy credits (Kling and Seedance).
+Effort: 5–6 days. Test cost: ~$8 GPU + ~$15–20 Seedance credits.
 
 ---
 
@@ -114,7 +115,7 @@ Effort: 2–3 days.
 | 0 Foundations | 2–3 days | ~$3 | volume ~$7/month |
 | 1 Team app | 3–4 days | ~$3 | |
 | 2 Quality | 4–5 days | ~$8 | |
-| 3 Backgrounds + engines | 6–8 days | ~$8 | Comfy credits ~$30 (Kling, Seedance) |
+| 3 Backgrounds + Seedance | 5–6 days | ~$8 | Seedance credits ~$15–20 |
 | 4 Handoff | 2–3 days | ~$2 | |
 | **Total** | **~4 weeks** | **~$25** | |
 
@@ -126,19 +127,19 @@ Phases run in order; 3A and 3C can start during Phase 2 if wanted.
 |---|---|---|
 | Hands smear in fast motion (model ceiling) | Some choreography stays imperfect | Multi-seed picking, slower moves, High tier; set expectations |
 | ComfyUI version drift | New nodes (SCAIL-2, SeedVR2, FILM) could vanish or change on update | Verified present in our pinned build (commit e8665ca, 11 Oct 2026); boot smoke test re-checks |
-| Paid engines (Kling, Seedance) change price or API | 3C/3D cost drift | Cost shown per job; both are optional paths next to the open models |
+| Seedance price or API changes | 3C cost drift | Cost shown per job; optional path next to the open models |
 | GPU sold out on RunPod | Session delayed | Volume region with several GPU types; A40 fallback |
 | Kling/Comfy credit changes | 3C cost drift | Shown per job; optional path |
 | Platform policy (impersonation, AI labelling, TikTok motion-control shadowbans) | Account bans | Original characters only; consent for real people; label AI content; vary content types |
 | Maintenance | Breakage after updates | Pinned versions, smoke test, update procedure |
 
-## Decisions needed from you
+## Decisions (13 Oct 2026)
 
-1. Default GPU: **L40S** (recommended) or A40.
-2. Approve ~$30 Comfy credits when Phase 3C/3D (Kling, Seedance) starts.
-3. Starter presets: I draft six; you edit names and looks.
-4. Who on the team tests each phase (one person is enough).
+1. Default GPU: **L40S**.
+2. Paid engine: **Seedance 2.5 only**, ~$15–20 Comfy credits when Phase 3 starts. Kling deferred.
+3. Starter presets: six drafted by Claude; you rename and adjust.
+4. Tester for every phase: you.
 
 ## Out of scope (for now)
 
-Public web app with logins, desktop installer, NSFW tooling, training LoRAs for Wan Animate 2 (unproven), lip-sync.
+Public web app with logins, desktop installer, NSFW tooling, training LoRAs for Wan Animate 2 (unproven), lip-sync, Kling 3 Motion Control (deferred; node installed, about a day to add).
