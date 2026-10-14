@@ -97,6 +97,8 @@ Kling 3 Motion Control is deferred (decision 13 Oct 2026). The node is installed
 
 Done when: a teammate can pick any background mode or engine from the app and get a clip; the comparison doc exists.
 
+Status 14 Oct 2026: 3A, 3B and 3C built and unit-tested (50 tests); the SCAIL-2 and Seedance graphs were accepted by ComfyUI structurally; the app has an Engine selector (Wan Animate 2 / SCAIL-2 / Seedance 2.5) and a Describe button. Pending: GPU session for SCAIL-2 (profile `scail2`, ~20 GB), a Comfy API key with credits for Seedance (`COMFY_API_KEY`), an Anthropic key for Describe (`ANTHROPIC_API_KEY`), then the three-way comparison (3.4).
+
 Effort: 5–6 days. Test cost: ~$8 GPU + ~$15–20 Seedance credits.
 
 ---
