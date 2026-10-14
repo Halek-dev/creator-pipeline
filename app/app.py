@@ -13,6 +13,7 @@ from pathlib import Path
 import gradio as gr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import describe as D  # noqa: E402
 import jobs as J  # noqa: E402
 
 RUNNER = J.Runner()
@@ -27,7 +28,7 @@ HELP = """
 
 **Driving video**: one person, full body, stable camera, even light, no motion blur. Each pass uses 81 frames (about 3.4 s at 24 fps); a longer video allows 2 or 3 passes for a longer clip. The motion comes from this video.
 
-**Preset**: the background is generated from the scene text; it does not come from either input. Edit the scene text per job if you want something specific.
+**Preset**: the background is generated from the scene text; it does not come from either input. Edit the scene text per job if you want something specific, or press **Describe** to fill it from the reference image's or the driving video's surroundings (needs an Anthropic API key on the pod).
 
 **Seeds**: 2–4 seeds give you choices; the Jobs tab shows a contact sheet and a face strip per seed so you can pick in seconds.
 
@@ -70,6 +71,21 @@ def touch_keepalive():
 
 def on_character(name):
     return presets()["characters"].get(name, {}).get("appearance", "")
+
+
+def on_describe(source, image, video, current_background):
+    """Fill the Background box from the reference image or the driving video's first frame."""
+    touch_keepalive()
+    path, frame = (image, False) if source.startswith("reference") else (video, True)
+    if not path:
+        return current_background, f"Add the {'reference image' if not frame else 'driving video'} first."
+    if not D.credentials_available():
+        return current_background, "Scene description needs an Anthropic API key: set ANTHROPIC_API_KEY before starting the app."
+    try:
+        text = D.describe_background(path, frame=frame)
+    except D.DescribeError as e:
+        return current_background, str(e)
+    return text, "Background filled from the " + ("reference image" if not frame else "driving video") + ". Edit it if you like, then Run."
 
 
 def on_scene(name):
@@ -214,6 +230,10 @@ def build():
                         appearance = gr.Textbox(p["characters"][char_names[0]]["appearance"], label="Looks (no motion words)", lines=2)
                         scene = gr.Dropdown(scene_names, value=scene_names[0], label="Scene preset")
                         background = gr.Textbox(first_scene["background"], label="Background", lines=2)
+                        with gr.Row():
+                            describe_source = gr.Radio(["reference image", "driving video"], value="reference image", label="Describe the scene from", scale=3)
+                            describe_btn = gr.Button("Describe", scale=1)
+                        describe_md = gr.Markdown("")
                         motion = gr.Textbox(first_scene["motion"], label="What the person is doing", lines=1)
                         with gr.Row():
                             identity_hold = gr.Slider(0.8, 1.5, value=float(first_scene.get("identity_hold", 1.0)), step=0.05, label="Identity hold")
@@ -232,6 +252,7 @@ def build():
                 video.change(on_preflight, [image, video], [preflight_md, length, info_state])
                 character.change(on_character, character, appearance)
                 scene.change(on_scene, scene, [background, motion, identity_hold, motion_looseness])
+                describe_btn.click(on_describe, [describe_source, image, video, background], [background, describe_md])
 
                 def est(tier_name, seeds, length_label, finishing, info):
                     chunks = dict(J.length_choices(info.get("frames", 0) if info else 0)).get(length_label, 1)
