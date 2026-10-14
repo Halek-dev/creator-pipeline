@@ -152,7 +152,8 @@ def _portrait(opts):
 def _set_outputs(wf, job, seed, finishing):
     prefix = f"motion_swap/{job['id']}/s{seed}"
     set_input(wf, "Save.filename_prefix", f"{prefix}_result")
-    set_input(wf, "Save Compare.filename_prefix", f"{prefix}_compare")
+    if "Save Compare" in B.by_title(wf):  # Seedance graphs have no compare node; the app builds that clip itself
+        set_input(wf, "Save Compare.filename_prefix", f"{prefix}_compare")
     if finishing:
         set_input(wf, "Final Video.fps", round(float(job["options"].get("fps") or 24) * 2, 3))
         set_input(wf, "Save Final.filename_prefix", f"{prefix}_final")
@@ -321,22 +322,98 @@ def _picked_frames(path, count=6):
     return [picked[i] for i in wanted if i in picked]
 
 
+def _side_by_side(result, driving, dst, max_seconds=10.0, height=640):
+    """Write result | driving as one clip, frame by frame (never more than two frames in memory), driving frames
+    picked by time so differing frame rates stay in sync. No audio: the compare is for scoring."""
+    from fractions import Fraction
+
+    import av
+    from PIL import Image
+
+    def scaled(frame):
+        im = frame.to_image()
+        w = max(2, round(im.width * height / im.height) // 2 * 2)
+        return im.resize((w, height))
+
+    with av.open(str(result)) as rc, av.open(str(driving)) as dc:
+        rs, ds = rc.streams.video[0], dc.streams.video[0]
+        fps = Fraction(rs.average_rate or 24).limit_denominator(1000)
+        drive_frames = dc.decode(ds)
+        current = next(drive_frames, None)
+        out = None
+        try:
+            for i, rf in enumerate(rc.decode(rs)):
+                t = rf.time if rf.time is not None else i / float(fps)
+                if t > max_seconds:
+                    break
+                nxt = current
+                while nxt is not None and (nxt.time is None or nxt.time <= t):
+                    current = nxt
+                    nxt = next(drive_frames, None)
+                if nxt is not None and current is not None and nxt.time is not None and nxt.time <= t:
+                    current = nxt
+                a = scaled(rf)
+                b = scaled(current) if current is not None else Image.new("RGB", (a.width, height), "black")
+                canvas = Image.new("RGB", (a.width + b.width, height), "black")
+                canvas.paste(a, (0, 0))
+                canvas.paste(b, (a.width, 0))
+                if out is None:
+                    out = av.open(str(dst), "w")
+                    vs = out.add_stream("libx264", rate=fps)
+                    vs.width, vs.height, vs.pix_fmt = canvas.width, canvas.height, "yuv420p"
+                    vs.options = {"crf": "20", "preset": "veryfast"}
+                for pkt in vs.encode(av.VideoFrame.from_image(canvas)):
+                    out.mux(pkt)
+            if out is not None:
+                for pkt in vs.encode():
+                    out.mux(pkt)
+        finally:
+            if out is not None:
+                out.close()
+    return out is not None
+
+
+def make_compare(job, max_seconds=10.0):
+    """Seeds that have a result but no compare clip (Seedance, or a render whose compare failed) get one built here,
+    streaming, instead of inside ComfyUI where it needs the whole clip in RAM."""
+    for run in job["runs"]:
+        if run["status"] != "done" or any("compare" in p for p in run["outputs"]):
+            continue
+        result = next((p for p in run["outputs"] if "_result" in p), None) or next((p for p in run["outputs"] if p.endswith(".mp4")), None)
+        driving = COMFY_INPUT / job.get("inputs", {}).get("video", "")
+        if not result or not output_path(result).exists() or not driving.is_file():
+            continue
+        rel = f"motion_swap/{job['id']}/s{run['seed']}_compare_app.mp4"
+        try:
+            output_path(rel).parent.mkdir(parents=True, exist_ok=True)
+            if _side_by_side(output_path(result), driving, output_path(rel), max_seconds):
+                run["outputs"].append(rel)
+        except Exception as e:  # a missing compare is a pity, not a failure
+            run["compare_error"] = str(e)
+
+
 def make_sheets(job):
-    """Six frames + a face strip per seed, from the compare clip, so picking a seed takes seconds."""
+    """Six frames + a face strip per seed, from the compare clip (or the result when there is none),
+    so picking a seed takes seconds."""
     try:
         from PIL import Image
     except ImportError:
         return
     for run in job["runs"]:
         compare = next((p for p in run["outputs"] if "compare" in p), None)
-        if not compare or not output_path(compare).exists():
+        source = compare or next((p for p in run["outputs"] if p.endswith(".mp4")), None)
+        if not source or not output_path(source).exists():
             continue
         try:
-            frames = _picked_frames(output_path(compare))
+            frames = _picked_frames(output_path(source))
             if not frames:
                 continue
             w, h = frames[0].size
+            if not compare:  # a plain result: treat it as the "left half" so the crops below still make sense
+                w *= 2
             tw, th = w // 2, h // 2
+            if not compare:
+                frames = [fr.resize((tw, th)) for fr in frames]  # keep tiles the size a compare's left half would be
             sheet = Image.new("RGB", (tw * 3, th * 2), "black")
             for i, fr in enumerate(frames):
                 sheet.paste(fr.resize((tw, th)), ((i % 3) * tw, (i // 3) * th))
@@ -353,7 +430,7 @@ def make_sheets(job):
             run["sheets"] = [str(sheet_path), str(faces_path)]
             # Poster: the result half of a middle frame, the card thumbnail in the web app.
             mid = frames[len(frames) // 2]
-            poster = mid.crop((0, 0, w // 2, h))
+            poster = mid.crop((0, 0, min(w // 2, mid.width), mid.height))
             if poster.width > 540:
                 poster = poster.resize((540, round(h * 540 / (w // 2))))
             poster_path = d / f"s{run['seed']}_poster.jpg"
@@ -634,6 +711,7 @@ class Runner(threading.Thread):
                 run["error"] = error_message(entry)
             save_job(job)
 
+        make_compare(job)
         make_sheets(job)
         job["finished"] = datetime.now().isoformat(timespec="seconds")
         if job.get("engine") == "seedance":

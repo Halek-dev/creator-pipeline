@@ -18,18 +18,6 @@
     }
   },
   "3": {
-    "class_type": "GetVideoComponents",
-    "_meta": {
-      "title": "Driving Frames"
-    },
-    "inputs": {
-      "video": [
-        "2",
-        0
-      ]
-    }
-  },
-  "4": {
     "class_type": "ByteDance2ReferenceNodeV2",
     "_meta": {
       "title": "Seedance"
@@ -57,108 +45,17 @@
       "watermark": false
     }
   },
-  "5": {
+  "4": {
     "class_type": "SaveVideo",
     "_meta": {
       "title": "Save"
     },
     "inputs": {
       "video": [
-        "4",
+        "3",
         0
       ],
       "filename_prefix": "motion_swap/seedance_result",
-      "format": "mp4",
-      "format.codec": "h264"
-    }
-  },
-  "6": {
-    "class_type": "GetVideoComponents",
-    "_meta": {
-      "title": "Result Frames"
-    },
-    "inputs": {
-      "video": [
-        "4",
-        0
-      ]
-    }
-  },
-  "7": {
-    "class_type": "ImageFromBatch",
-    "_meta": {
-      "title": "Result Trimmed"
-    },
-    "inputs": {
-      "image": [
-        "6",
-        0
-      ],
-      "batch_index": 0,
-      "length": 81
-    }
-  },
-  "8": {
-    "class_type": "ImageFromBatch",
-    "_meta": {
-      "title": "Driving Trimmed"
-    },
-    "inputs": {
-      "image": [
-        "3",
-        0
-      ],
-      "batch_index": 0,
-      "length": 81
-    }
-  },
-  "9": {
-    "class_type": "ImageStitch",
-    "_meta": {
-      "title": "Compare"
-    },
-    "inputs": {
-      "image1": [
-        "7",
-        0
-      ],
-      "image2": [
-        "8",
-        0
-      ],
-      "direction": "right",
-      "match_image_size": true,
-      "spacing_width": 0,
-      "spacing_color": "white"
-    }
-  },
-  "10": {
-    "class_type": "CreateVideo",
-    "_meta": {
-      "title": "Compare Video"
-    },
-    "inputs": {
-      "images": [
-        "9",
-        0
-      ],
-      "fps": [
-        "3",
-        2
-      ]
-    }
-  },
-  "11": {
-    "class_type": "SaveVideo",
-    "_meta": {
-      "title": "Save Compare"
-    },
-    "inputs": {
-      "video": [
-        "10",
-        0
-      ],
-      "filename_prefix": "motion_swap/seedance_compare",
       "format": "mp4",
       "format.codec": "h264"
     }

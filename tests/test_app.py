@@ -385,5 +385,32 @@ class CostSummaryTests(unittest.TestCase):
         self.assertEqual(len(J.cost_rows(rows)[0]), len(J.COST_HEADERS))
 
 
+class CompareClipTests(unittest.TestCase):
+    def test_make_compare_streams_a_side_by_side_and_sheets_use_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            old = J.COMFY_INPUT, J.COMFY_OUTPUT, J.JOBS_DIR
+            J.COMFY_INPUT, J.COMFY_OUTPUT, J.JOBS_DIR = Path(d) / "input", Path(d) / "output", Path(d) / "jobs"
+            try:
+                J.COMFY_INPUT.mkdir()
+                (J.COMFY_OUTPUT / "motion_swap" / "j7").mkdir(parents=True)
+                make_video(J.COMFY_INPUT / "drive.mp4", 90, fps=30, size=(96, 160))   # 3 s at 30 fps
+                make_video(J.COMFY_OUTPUT / "motion_swap" / "j7" / "s3_result_00001_.mp4", 48, fps=24, size=(128, 224))  # 2 s at 24 fps
+                job = {"id": "j7", "inputs": {"video": "drive.mp4"}, "runs": [{"seed": 3, "status": "done", "outputs": ["motion_swap/j7/s3_result_00001_.mp4"], "sheets": []}]}
+                J.make_compare(job)
+                rel = "motion_swap/j7/s3_compare_app.mp4"
+                self.assertIn(rel, job["runs"][0]["outputs"])
+                with av.open(str(J.output_path(rel))) as c:
+                    s = c.streams.video[0]
+                    self.assertEqual(s.height, 640)
+                    self.assertEqual(s.width, round(128 * 640 / 224) // 2 * 2 + round(96 * 640 / 160) // 2 * 2)  # 366 + 384
+                    self.assertEqual(float(s.average_rate), 24.0)
+                    self.assertEqual(s.frames, 48)
+                J.make_sheets(job)
+                self.assertEqual(len(job["runs"][0]["sheets"]), 2)
+                self.assertTrue(Path(job["runs"][0]["poster"]).exists())
+            finally:
+                J.COMFY_INPUT, J.COMFY_OUTPUT, J.JOBS_DIR = old
+
+
 if __name__ == "__main__":
     unittest.main()

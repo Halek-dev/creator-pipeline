@@ -31,7 +31,6 @@ def build(prompt="A young woman with dark hair in a high bun, black crop top and
     wf = {}
     ref = add(wf, "LoadImage", "Reference Image", {"image": "reference_streetwear_character.png"})
     vid = add(wf, "LoadVideo", "Driving Video", {"file": "street_dancer.mp4"})
-    frames = add(wf, "GetVideoComponents", "Driving Frames", {"video": [vid, 0]})
     gen = add(wf, "ByteDance2ReferenceNodeV2", "Seedance", {
         "model": "Seedance 2.5",
         "model.prompt": prompt,
@@ -49,13 +48,8 @@ def build(prompt="A young woman with dark hair in a high bun, black crop top and
         "watermark": False,
     })
     add(wf, "SaveVideo", "Save", {"video": [gen, 0], "filename_prefix": "motion_swap/seedance_result", "format": "mp4", "format.codec": "h264"})
-    # compare: first 81 frames of the result next to the first 81 driving frames (sizes matched by the stitch)
-    result_frames = add(wf, "GetVideoComponents", "Result Frames", {"video": [gen, 0]})
-    result_trim = add(wf, "ImageFromBatch", "Result Trimmed", {"image": [result_frames, 0], "batch_index": 0, "length": COMPARE_FRAMES})
-    drive_trim = add(wf, "ImageFromBatch", "Driving Trimmed", {"image": [frames, 0], "batch_index": 0, "length": COMPARE_FRAMES})
-    compare = add(wf, "ImageStitch", "Compare", {"image1": [result_trim, 0], "image2": [drive_trim, 0], "direction": "right", "match_image_size": True, "spacing_width": 0, "spacing_color": "white"})
-    cvideo = add(wf, "CreateVideo", "Compare Video", {"images": [compare, 0], "fps": [frames, 2]})
-    add(wf, "SaveVideo", "Save Compare", {"video": [cvideo, 0], "filename_prefix": "motion_swap/seedance_compare", "format": "mp4", "format.codec": "h264"})
+    # No compare clip here: decoding a long 1080p result inside ComfyUI needs the whole clip in RAM (8 GB for 14 s),
+    # which killed a laptop run. The app builds the side-by-side itself, streaming (jobs.make_compare).
     return wf
 
 

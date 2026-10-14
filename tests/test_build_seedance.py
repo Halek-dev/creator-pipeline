@@ -18,8 +18,7 @@ class SeedanceBuildTests(unittest.TestCase):
         self.assertEqual(s["model.reference_videos.video_1"], [t["Driving Video"], 0])
         self.assertEqual(s["model.duration"], 7)
         self.assertEqual(wf[t["Save"]]["inputs"]["video"], [t["Seedance"], 0])
-        self.assertEqual(wf[t["Result Frames"]]["inputs"]["video"], [t["Seedance"], 0])
-        self.assertEqual(wf[t["Compare"]]["inputs"]["image1"], [t["Result Trimmed"], 0])
+        self.assertNotIn("GetVideoComponents", {n["class_type"] for n in wf.values()})  # never decode whole clips in ComfyUI
         for n in wf.values():
             for k, v in n["inputs"].items():
                 if isinstance(v, list) and len(v) == 2 and isinstance(v[0], str):
