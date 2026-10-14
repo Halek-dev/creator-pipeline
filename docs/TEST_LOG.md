@@ -41,3 +41,9 @@ Derived timings on the A100: Standard pass ≈ 6 min, High pass ≈ 9 min, Finis
 ## Next measurements
 
 Phase 3: auto background prompt, SCAIL-2 replace-into-video, Seedance 2.5 reference-to-video, three-way comparison on this same pair.
+
+## 14 Oct 2026, code review and Phase 4 (laptop only, no GPU)
+
+Code review of app/tools/scripts: 21 findings, all fixed, suite grown to 57 tests. Notable: the runner no longer waits forever when ComfyUI restarts mid-job (it requeues once), a transient poll error no longer fails a job, the public link takes a password, `validate_workflow.py` no longer interrupts other people's renders, `setup.sh` fails loudly when pip fails, the watchdog retries a failed stop.
+
+Phase 4 delivered without a GPU session: team guide with screenshots (taken from the app running locally against three demo jobs built from the Phase 2 clips), update procedure, Costs tab and report, pod helper script (untested against a live RunPod account). Still to measure: SCAIL-2 and Seedance on the reference pair (Phase 3.4).

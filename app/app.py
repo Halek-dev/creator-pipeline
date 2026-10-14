@@ -7,6 +7,7 @@ Environment: COMFY_SERVER (default http://127.0.0.1:8188), APP_PORT (7860), GPU_
 import csv
 import json
 import os
+from datetime import datetime
 import sys
 from pathlib import Path
 
@@ -46,7 +47,9 @@ def status_line():
     parts = []
     try:
         wd = json.loads((J.LOGS / "watchdog.status").read_text())
-        parts.append(f"pod stops itself in {wd['stops_in_minutes']:.0f} min if idle")
+        age = (datetime.now() - datetime.fromisoformat(wd["checked"])).total_seconds()
+        if age < 180:  # a stale file means the watchdog is not running; say nothing rather than something wrong
+            parts.append(f"pod stops itself in {wd['stops_in_minutes']:.0f} min if idle")
     except Exception:
         pass
     if RUNNER.current:
@@ -165,6 +168,17 @@ def on_select_job(ids, evt: gr.SelectData):
         return f"Couldn't load this job: {e.__class__.__name__}: {e}", None, [], []
 
 
+class _FirstRow:
+    index = (0, 0)
+
+
+def show_latest_job(ids):
+    """Details of the newest job, for when the Jobs tab opens; same shape as a table click."""
+    if not ids:
+        return "No jobs yet. Queue one on the New clip tab.", None, [], []
+    return on_select_job(ids, _FirstRow())
+
+
 def job_details(ids, evt):
     if not ids or evt.index is None:
         return "", None, [], []
@@ -238,8 +252,9 @@ def build():
     with gr.Blocks(title="Creator Pipeline") as demo:
         gr.Markdown("# Motion swap")
         status = gr.Markdown(status_line())
-        with gr.Tabs():
-            with gr.Tab("New clip"):
+        start_tab = os.environ.get("APP_START_TAB", "new")
+        with gr.Tabs(selected=start_tab if start_tab in ("new", "jobs", "sheet", "costs", "help") else "new"):
+            with gr.Tab("New clip", id="new"):
                 info_state = gr.State({})
                 with gr.Row():
                     with gr.Column():
@@ -289,7 +304,7 @@ def build():
                 run.click(on_run, [image, video, engine, character, appearance, scene, background, motion, identity_hold, motion_looseness,
                                    tier, seeds, length, finishing, note, info_state], result_md)
 
-            with gr.Tab("Jobs"):
+            with gr.Tab("Jobs", id="jobs"):
                 rows, ids = jobs_table()
                 ids_state = gr.State(ids)
                 table = gr.Dataframe(value=rows, headers=["Job", "Created", "Status", "Character", "Scene", "Tier", "Done", "Cost"], interactive=False, wrap=True)
@@ -300,8 +315,9 @@ def build():
                 timer = gr.Timer(5)
                 timer.tick(refresh_jobs, None, [table, ids_state, status])
                 table.select(on_select_job, ids_state, [detail, preview, downloads, sheets])
+                demo.load(show_latest_job, ids_state, [detail, preview, downloads, sheets])
 
-            with gr.Tab("Job sheet"):
+            with gr.Tab("Job sheet", id="sheet"):
                 gr.Markdown("Bulk mode. Upload a CSV with columns `image,video,character,scene,seeds,passes,note` and optionally `engine` (wan, scail or seedance). `image` and `video` are file names already in `ComfyUI/input` (upload them via Jupyter). Character and scene are preset names; `passes` is 1–3 (capped by the video length).")
                 sheet = gr.File(label="CSV", file_types=[".csv"])
                 with gr.Row():
@@ -312,7 +328,15 @@ def build():
                 sheet_md = gr.Markdown("")
                 sheet_btn.click(on_sheet, [sheet, sheet_tier, sheet_finish, sheet_engine], sheet_md)
 
-            with gr.Tab("Help"):
+            with gr.Tab("Costs", id="costs"):
+                gr.Markdown(f"Per month, from the job history. **Render $** is the GPU time the clips took at ${J.GPU_HOURLY_USD:.2f}/h. "
+                            f"**Pod $ (est.)** is what the pod most likely billed: the span of each day's jobs plus the watchdog's {J.IDLE_ALLOWANCE_MIN:.0f}-minute idle allowance "
+                            "and a few minutes of start-up. **Seedance $** is Comfy credits, not GPU time. Check the real numbers on RunPod → Billing and comfy.org → Credits.")
+                cost_table = gr.Dataframe(value=J.cost_rows(J.cost_summary()), headers=J.COST_HEADERS, interactive=False)
+                cost_btn = gr.Button("Refresh")
+                cost_btn.click(lambda: J.cost_rows(J.cost_summary()), None, cost_table)
+
+            with gr.Tab("Help", id="help"):
                 gr.Markdown(HELP)
     return demo
 

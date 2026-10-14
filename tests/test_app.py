@@ -359,5 +359,31 @@ class ReviewFixTests(unittest.TestCase):
             J.poll = old
 
 
+class CostSummaryTests(unittest.TestCase):
+    def test_monthly_summary_groups_sessions_and_engines(self):
+        jobs = [
+            {"id": "a", "status": "done", "engine": "wan", "started": "2026-10-13T10:00:00", "finished": "2026-10-13T10:10:00",
+             "cost": {"actual_usd": 0.30, "estimate_usd": 0.2}, "runs": [{"status": "done", "seconds": 600}]},
+            {"id": "b", "status": "partial", "engine": "scail", "started": "2026-10-13T11:00:00", "finished": "2026-10-13T11:30:00",
+             "cost": {"actual_usd": None, "estimate_usd": 0.5}, "runs": [{"status": "done", "seconds": 900}, {"status": "error", "seconds": 900}]},
+            {"id": "c", "status": "done", "engine": "seedance", "started": "2026-10-13T12:00:00", "finished": "2026-10-13T12:03:00",
+             "cost": {"actual_usd": 2.1, "estimate_usd": 2.1}, "runs": [{"status": "done", "seconds": 180}]},
+            {"id": "d", "status": "done", "engine": "wan", "started": "2026-09-02T09:00:00", "finished": "2026-09-02T09:06:00",
+             "cost": {"actual_usd": 0.1, "estimate_usd": 0.1}, "runs": [{"status": "done", "seconds": 360}]},
+            {"id": "e", "status": "running", "engine": "wan", "started": "2026-10-14T09:00:00", "cost": {"actual_usd": None, "estimate_usd": 1}, "runs": []},
+        ]
+        rows = J.cost_summary(jobs, hourly=2.0)
+        self.assertEqual([r["month"] for r in rows], ["2026-10", "2026-09"])
+        oct_ = rows[0]
+        self.assertEqual((oct_["jobs"], oct_["clips"], oct_["seedance_jobs"]), (3, 3, 1))
+        self.assertAlmostEqual(oct_["render_minutes"], 40.0)          # 600 + 1800 seconds
+        self.assertAlmostEqual(oct_["render_usd"], 0.30 + 1800 / 3600 * 2.0)  # actual where known, else time x rate
+        self.assertAlmostEqual(oct_["seedance_usd"], 2.1)
+        self.assertEqual(oct_["sessions"], 1)                         # one day of GPU work (Seedance does not need the pod)
+        span = 90  # 10:00 -> 11:30
+        self.assertAlmostEqual(oct_["pod_hours"], (span + J.IDLE_ALLOWANCE_MIN + J.SESSION_OVERHEAD_MIN) / 60, places=2)
+        self.assertEqual(len(J.cost_rows(rows)[0]), len(J.COST_HEADERS))
+
+
 if __name__ == "__main__":
     unittest.main()

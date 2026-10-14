@@ -97,7 +97,7 @@ Kling 3 Motion Control is deferred (decision 13 Oct 2026). The node is installed
 
 Done when: a teammate can pick any background mode or engine from the app and get a clip; the comparison doc exists.
 
-Status 14 Oct 2026: 3A, 3B and 3C built and unit-tested (50 tests); the SCAIL-2 and Seedance graphs were accepted by ComfyUI structurally; the app has an Engine selector (Wan Animate 2 / SCAIL-2 / Seedance 2.5) and a Describe button. Pending: GPU session for SCAIL-2 (profile `scail2`, ~20 GB), a Comfy API key with credits for Seedance (`COMFY_API_KEY`), an Anthropic key for Describe (`ANTHROPIC_API_KEY`), then the three-way comparison (3.4).
+Status 14 Oct 2026: 3A, 3B and 3C built and unit-tested (50 tests); the SCAIL-2 and Seedance graphs were accepted by ComfyUI structurally; the app has an Engine selector (Wan Animate 2 / SCAIL-2 / Seedance 2.5) and a Describe button. Pending: GPU session for SCAIL-2 (profile `scail2`, ~20 GB), a Comfy API key with credits for Seedance (`COMFY_API_KEY`), an Anthropic key for Describe (`ANTHROPIC_API_KEY`), then the three-way comparison (3.4). Code review of app/tools/scripts done 14 Oct (21 findings, all fixed, 57 tests): the runner now survives ComfyUI restarts, the public link can take a password (`APP_PASSWORD`), and preflight/estimates/job details follow the chosen engine.
 
 Effort: 5–6 days. Test cost: ~$8 GPU + ~$15–20 Seedance credits.
 
@@ -113,6 +113,10 @@ Effort: 5–6 days. Test cost: ~$8 GPU + ~$15–20 Seedance credits.
 | 4.4 | Optional: "Start pod" button in the app (RunPod API); serverless deployment path documented. |
 
 Effort: 2–3 days.
+
+**Done, 14 Oct 2026** (no GPU needed). 4.1 [TEAM_GUIDE.md](TEAM_GUIDE.md) with screenshots of the login, New clip, Jobs and Costs tabs; the Jobs tab now opens on the newest job. 4.2 [UPDATING.md](UPDATING.md): what is pinned where, the update procedure (fresh pod, smoke test, validate every workflow, re-render the reference pair, tests), rollback. 4.3 **Costs** tab in the app and `tools/cost_report.py`: per month, render minutes and dollars, estimated pod bill (day spans + idle allowance), Seedance credits. 4.4 `tools/pod.py status|start|stop|terminate` (RunPod GraphQL; written from the docs, not yet run against a live account; `--dry-run` prints the call) and the serverless note below. Still open from Phase 3: the GPU session for SCAIL-2, the Seedance credits and the three-way comparison.
+
+Serverless (pay per clip, $0 idle): the same workflows run on RunPod Serverless with the ComfyUI worker image and the network volume mounted; the app would then call the `/run` endpoint instead of a pod's ComfyUI. Worth it only when the team renders a few clips a day on random days; at batch usage the pod is cheaper and simpler. Not built.
 
 ---
 

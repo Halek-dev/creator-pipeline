@@ -340,10 +340,11 @@ def make_sheets(job):
             sheet = Image.new("RGB", (tw * 3, th * 2), "black")
             for i, fr in enumerate(frames):
                 sheet.paste(fr.resize((tw, th)), ((i % 3) * tw, (i // 3) * th))
-            fw = w // 4
-            faces = Image.new("RGB", (fw * len(frames), fw), "black")
+            # Face strip: the result is the left half of the compare clip, the head is in its top third.
+            fw, fh = w // 4, max(h // 3, w // 4)
+            faces = Image.new("RGB", (fw * len(frames), fh), "black")
             for i, fr in enumerate(frames):
-                faces.paste(fr.crop((w // 8, 0, w // 8 + fw, fw)), (i * fw, 0))
+                faces.paste(fr.crop((w // 8, 0, w // 8 + fw, fh)), (i * fw, 0))
             d = job_dir(job["id"])
             d.mkdir(parents=True, exist_ok=True)
             sheet_path, faces_path = d / f"s{run['seed']}_sheet.jpg", d / f"s{run['seed']}_faces.jpg"
@@ -417,6 +418,69 @@ def resume_pending(submit):
         submit(job["id"])
         resumed += 1
     return resumed
+
+
+# ---------- cost summary (Phase 4.3) ----------
+
+IDLE_ALLOWANCE_MIN = float(os.environ.get("IDLE_MINUTES", "20"))  # what the watchdog allows after the last job
+SESSION_OVERHEAD_MIN = 5.0                                         # pod boot + setup + model load, per session
+
+
+def cost_summary(jobs=None, hourly=None):
+    """Per-month costs from the job history. Two numbers matter to the team:
+    render cost (GPU time the clips actually took) and the estimated pod bill, which adds the gaps between jobs
+    on the same day plus the watchdog's idle allowance, since the pod bills until it stops itself.
+    Seedance jobs are billed in Comfy credits and listed separately. Returns rows sorted newest month first."""
+    jobs = list_jobs(limit=100000) if jobs is None else jobs
+    hourly = GPU_HOURLY_USD if hourly is None else hourly
+    months = {}
+    sessions = {}  # day -> (first start, last finish) for GPU engines
+    for j in jobs:
+        if j.get("status") in ("queued", "running"):
+            continue
+        month = (j.get("started") or j.get("created") or "")[:7]
+        if not month:
+            continue
+        m = months.setdefault(month, {"month": month, "jobs": 0, "clips": 0, "render_minutes": 0.0, "render_usd": 0.0,
+                                      "seedance_jobs": 0, "seedance_usd": 0.0, "sessions": 0, "pod_hours": 0.0, "pod_usd": 0.0})
+        m["jobs"] += 1
+        m["clips"] += sum(1 for r in j.get("runs", []) if r.get("status") == "done")
+        cost = j.get("cost", {})
+        if j.get("engine") == "seedance":
+            m["seedance_jobs"] += 1
+            m["seedance_usd"] += cost.get("actual_usd") or cost.get("estimate_usd") or 0
+            continue
+        secs = sum(r.get("seconds") or 0 for r in j.get("runs", []))
+        m["render_minutes"] += secs / 60
+        m["render_usd"] += cost.get("actual_usd") if cost.get("actual_usd") is not None else secs / 3600 * hourly
+        start = j.get("started") or j.get("created")
+        end = j.get("finished") or start
+        if start:
+            day = start[:10]
+            lo, hi = sessions.get(day, (start, end))
+            sessions[day] = (min(lo, start), max(hi, end))
+    for day, (lo, hi) in sessions.items():
+        m = months[day[:7]]
+        try:
+            span = (datetime.fromisoformat(hi) - datetime.fromisoformat(lo)).total_seconds() / 60
+        except ValueError:
+            span = 0
+        m["sessions"] += 1
+        m["pod_hours"] += (max(span, 0) + IDLE_ALLOWANCE_MIN + SESSION_OVERHEAD_MIN) / 60
+    for m in months.values():
+        m["pod_usd"] = round(m["pod_hours"] * hourly, 2)
+        for k in ("render_minutes", "render_usd", "seedance_usd", "pod_hours"):
+            m[k] = round(m[k], 2)
+    return sorted(months.values(), key=lambda r: r["month"], reverse=True)
+
+
+def cost_rows(summary):
+    """Table rows for the app's Costs tab."""
+    return [[m["month"], m["jobs"], m["clips"], f"{m['render_minutes']:.0f}", f"${m['render_usd']:.2f}", m["sessions"], f"{m['pod_hours']:.1f}",
+             f"${m['pod_usd']:.2f}", f"${m['seedance_usd']:.2f}"] for m in summary]
+
+
+COST_HEADERS = ["Month", "Jobs", "Clips", "Render min", "Render $", "Sessions", "Pod hours (est.)", "Pod $ (est.)", "Seedance $"]
 
 
 # ---------- runner ----------
