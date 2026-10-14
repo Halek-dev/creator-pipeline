@@ -289,18 +289,18 @@ def preflight(body: PreflightIn):
 
 
 @app.get("/api/estimate")
-def estimate(engine: str = "wan", tier: str = "Standard", chunks: int = 1, finishing: bool = False, seeds: int = 1, seconds: float = 5.0):
+def estimate(engine: str = "wan", tier: str = "Standard", chunks: int = 1, finishing: bool = False, seeds: int = 1, seconds: float = 5.0, seedance_mode: str = "edit"):
     p = presets()
     if tier not in p["tiers"]:
         raise HTTPException(400, "Unknown tier")
     seeds = max(1, min(J.MAX_SEEDS, seeds))
     chunks = max(1, min(J.MAX_CHUNKS, chunks))
     if engine == "seedance":
-        minutes, credits, usd, measured = J.seedance_credits(p, tier, seconds, seeds)
+        minutes, credits, usd, measured = J.seedance_credits(p, tier, seconds, seeds, seedance_mode)
         cap = J.seedance_cap(p)
         res = J.SEEDANCE_RESOLUTION.get(tier, "720p")
-        note = (f"Seedance 2.5 at {res}, {J.SD.clamp_duration(seconds)} s with sound: {credits:,} Comfy credits (about ${usd:.2f})"
-                + ("" if measured else ", approximate until measured at this resolution") + f". Jobs above {cap:,} credits are refused.")
+        note = (f"Seedance 2.5 at {res}, {J.SD.clamp_duration(seconds)} s with sound: {credits:,} Comfy credits (about ${usd:.2f}). "
+                f"The driving video's length is billed as input on top of the output. Jobs above {cap:,} credits are refused.")
         if credits > cap:
             note = f"Over the cap: {credits:,} credits (about ${usd:.2f}) is above the limit of {cap:,}. Use a lower tier, fewer seeds or a shorter clip."
         return {"minutes": round(minutes, 1), "usd": usd, "credits": credits, "cap": cap, "over_cap": credits > cap, "currency": "credits", "note": note}
@@ -345,7 +345,7 @@ def create_job(body: JobIn):
     if engine == "seedance":
         p0 = presets()
         seconds = (info.get("frames") or 120) / float(info.get("fps") or 24)
-        _, credits, usd, _ = J.seedance_credits(p0, body.tier, seconds, max(1, min(J.MAX_SEEDS, body.seeds)))
+        _, credits, usd, _ = J.seedance_credits(p0, body.tier, seconds, max(1, min(J.MAX_SEEDS, body.seeds)), body.seedance_mode)
         if credits > J.seedance_cap(p0):
             raise HTTPException(400, f"Refused: this would cost about {credits:,} Comfy credits (about ${usd:.2f}), above the cap of {J.seedance_cap(p0):,}. "
                                      "Use a lower tier, fewer seeds or a shorter driving video, or raise max_credits in presets.yaml.")

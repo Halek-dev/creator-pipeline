@@ -280,19 +280,23 @@ def seedance_estimate(presets, tier_name, seconds, seeds):
     return minutes, usd
 
 
-def seedance_credits(presets, tier_name, seconds, seeds):
-    """(minutes, credits, usd, measured) for a Seedance job."""
+def seedance_credits(presets, tier_name, seconds, seeds, mode="edit"):
+    """(minutes, credits, usd, measured) for a Seedance job. Comfy bills BytePlus tokens: (input + output seconds)
+    x pixels x fps / 1024, at a per-resolution credit rate. The driving video is the input, so its length is billed on
+    top of the output. edit: output = input length. reference: output = clamp(input, 4..30 s)."""
     cfg = presets.get("seedance", {})
     res = SEEDANCE_RESOLUTION.get(tier_name, "720p")
-    rate = cfg.get("credits_per_second", {}).get(res, 90)
-    duration = SD.clamp_duration(seconds)
-    credits = int(round(duration * rate * seeds))
+    tokens_s = cfg.get("tokens_per_second", {}).get(res, 21600)
+    rate = cfg.get("credits_per_1k_tokens", {}).get(res, 1.931)
+    input_s = max(4.0, min(30.0, float(seconds or 5)))
+    output_s = input_s if mode == "edit" else float(SD.clamp_duration(seconds))
+    credits = int(round((input_s + output_s) * tokens_s / 1000 * rate * seeds))
     usd = round(credits / float(cfg.get("credits_per_usd", 211)), 2)
-    return cfg.get("minutes_per_clip", 7) * seeds, credits, usd, res in cfg.get("measured", [])
+    return cfg.get("minutes_per_clip", 7) * seeds, credits, usd, True
 
 
 def seedance_cap(presets):
-    return int(presets.get("seedance", {}).get("max_credits", 600))
+    return int(presets.get("seedance", {}).get("max_credits", 900))
 
 
 def new_job(image_path, video_path, character_name, appearance, scene_name, scene, tier_name, tier, seeds,
@@ -308,7 +312,7 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
     if engine == "seedance":
         finishing = False  # Seedance already delivers its own resolution and sound
         seconds = (info.get("frames") or 120) / float(info.get("fps") or 24)
-        minutes, credits, usd, _ = seedance_credits(presets, tier_name, seconds, seeds)
+        minutes, credits, usd, _ = seedance_credits(presets, tier_name, seconds, seeds, seedance_mode)
     else:
         minutes = estimate_minutes(tier, presets["finishing"], chunks, finishing, seeds)
         usd = round(minutes / 60 * GPU_HOURLY_USD, 2)

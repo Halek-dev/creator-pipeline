@@ -78,10 +78,10 @@ class WebApiTests(unittest.TestCase):
         self.assertGreater(e["usd"], 0)
         e2 = self.client.get("/api/estimate", params={"engine": "seedance", "tier": "High", "seconds": 7.1, "seeds": 1}).json()
         self.assertEqual(e2["currency"], "credits")
-        self.assertTrue(e2["over_cap"])  # 7 s at 1080p is 1,400 credits, above the 600 cap
+        self.assertTrue(e2["over_cap"])  # 7.1 s swap at 1080p is about 1,460 credits, above the 900 cap
         e3 = self.client.get("/api/estimate", params={"engine": "seedance", "tier": "Fast", "seconds": 5, "seeds": 1}).json()
         self.assertFalse(e3["over_cap"])
-        self.assertEqual(e3["credits"], 200)
+        self.assertEqual(e3["credits"], round((5 + 5) * 9600 / 1000 * 1.931))
         body = {"image": img, "video": vid, "engine": "wan", "character": "X", "appearance": "a woman", "scene": "Studio", "background": "a studio",
                 "motion": "dancing", "tier": "Standard", "seeds": 2, "chunks": 9, "finishing": False, "note": "t"}
         r = self.client.post("/api/jobs", json=body)

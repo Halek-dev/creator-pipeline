@@ -175,7 +175,7 @@
     clearTimeout(state.estTimer);
     state.estTimer = setTimeout(async () => {
       try {
-        const q = new URLSearchParams({ engine: state.engine, tier: state.tier, chunks: state.chunks, finishing: $("#finishing").checked, seeds: state.seeds, seconds: seconds() });
+        const q = new URLSearchParams({ engine: state.engine, tier: state.tier, chunks: state.chunks, finishing: $("#finishing").checked, seeds: state.seeds, seconds: seconds(), seedance_mode: state.seedanceMode || "edit" });
         const r = await api("/api/estimate?" + q);
         const passes = state.engine === "seedance" ? "whole clip" : `${state.chunks} pass${state.chunks > 1 ? "es" : ""}`;
         $("#est").innerHTML = `<span>${passes} × ${state.seeds} seed${state.seeds > 1 ? "s" : ""}</span><b>about ${Math.round(r.minutes)} min</b>`;

@@ -75,14 +75,21 @@ tiers:
 # Seedance 2.5 through ComfyUI's API node, billed in Comfy credits. Measured 14 Oct 2026: a 14 s 1080p clip with
 # sound cost 2,800 credits (200 per second); $5 bought 1,055 credits. 720p and 480p are scaled by pixel count and
 # marked approximate until measured. max_credits refuses any single job estimated above it (about $3 by default).
+# Billing formula (BytePlus token pricing, resold by comfy.org at 1.43x): tokens = (input seconds + output seconds)
+# x width x height x fps / 1024; credits = tokens / 1000 x credits_per_1k_tokens. With a driving video the input
+# seconds are billed too, so a swap (edit mode, output = input length) costs twice the output-only figure.
+# Checked against the 14 Oct 2026 run: 13.9 s in + 13.9 s out at 1080p = 2,850 credits predicted, 2,800 billed.
 seedance:
-  credits_per_second:
-    480p: 40
-    720p: 90
-    1080p: 200
-  measured: ["1080p"]
+  tokens_per_second:
+    480p: 9600
+    720p: 21600
+    1080p: 48600
+  credits_per_1k_tokens:
+    480p: 1.931
+    720p: 1.931
+    1080p: 2.112
   credits_per_usd: 211
-  max_credits: 600
+  max_credits: 900
   minutes_per_clip: 7
 
 # "Finish" option: SeedVR2 upscale x2 -> FILM 2x frames -> Reality Finish. Needs the "finishing" model profile.
