@@ -42,6 +42,18 @@
       { "url": "https://huggingface.co/Comfy-Org/frame_interpolation/resolve/main/frame_interpolation/film_net_fp16.safetensors", "dir": "frame_interpolation" }
     ]
   },
+  "scail2": {
+    "description": "SCAIL-2 (int8) character replacement: swaps the character into the original driving video, keeping its background. With SAM3.1 for masks and the DPO + lightx2v LoRAs. About 20 GB new (shares the text encoder, CLIP vision and VAE with wan-animate-2). 32 GB+ GPU.",
+    "files": [
+      { "url": "https://huggingface.co/Comfy-Org/SCAIL-2/resolve/main/diffusion_models/wan2.1_14B_SCAIL_2_int8_convrot.safetensors", "dir": "diffusion_models" },
+      { "url": "https://huggingface.co/Comfy-Org/SCAIL-2/resolve/main/loras/wan2.1_SCAIL_2_DPO_lora_bf16.safetensors", "dir": "loras" },
+      { "url": "https://huggingface.co/Comfy-Org/Wan-Animate-2/resolve/main/loras/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors", "dir": "loras" },
+      { "url": "https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors", "dir": "checkpoints" },
+      { "url": "https://huggingface.co/Comfy-Org/Wan-Animate-2/resolve/main/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors", "dir": "text_encoders" },
+      { "url": "https://huggingface.co/Comfy-Org/Wan-Animate-2/resolve/main/clip_vision/clip_vision_h.safetensors", "dir": "clip_vision" },
+      { "url": "https://huggingface.co/Comfy-Org/Wan-Animate-2/resolve/main/vae/Wan2_1_VAE_bf16.safetensors", "dir": "vae" }
+    ]
+  },
   "wan-animate-2-full": {
     "description": "Wan Animate 2 full model (int8) + lightx2v distill LoRA. Same VRAM as the distilled profile; higher quality, slower. Install wan-animate-2 first; this adds about 16.5 GB.",
     "files": [

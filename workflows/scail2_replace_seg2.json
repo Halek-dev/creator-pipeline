@@ -1,0 +1,848 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Model"
+    },
+    "inputs": {
+      "unet_name": "wan2.1_14B_SCAIL_2_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "DPO LoRA"
+    },
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "wan2.1_SCAIL_2_DPO_lora_bf16.safetensors",
+      "strength_model": 1.0
+    }
+  },
+  "3": {
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Distill LoRA"
+    },
+    "inputs": {
+      "model": [
+        "2",
+        0
+      ],
+      "lora_name": "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+      "strength_model": 0.8
+    }
+  },
+  "4": {
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "Shift"
+    },
+    "inputs": {
+      "model": [
+        "3",
+        0
+      ],
+      "shift": 5
+    }
+  },
+  "5": {
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Text Encoder"
+    },
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan"
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Character Prompt"
+    },
+    "inputs": {
+      "clip": [
+        "5",
+        0
+      ],
+      "text": "A young woman with dark hair in a high bun, black crop top and wide cargo pants, dancing in front of a graffiti wall in daylight."
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative Prompt"
+    },
+    "inputs": {
+      "clip": [
+        "5",
+        0
+      ],
+      "text": ""
+    }
+  },
+  "8": {
+    "class_type": "CLIPVisionLoader",
+    "_meta": {
+      "title": "CLIP Vision"
+    },
+    "inputs": {
+      "clip_name": "clip_vision_h.safetensors"
+    }
+  },
+  "9": {
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "VAE"
+    },
+    "inputs": {
+      "vae_name": "Wan2_1_VAE_bf16.safetensors"
+    }
+  },
+  "10": {
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "SAM Model"
+    },
+    "inputs": {
+      "ckpt_name": "sam3.1_multiplex_fp16.safetensors"
+    }
+  },
+  "11": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "SAM Driving Prompt"
+    },
+    "inputs": {
+      "clip": [
+        "10",
+        1
+      ],
+      "text": "person"
+    }
+  },
+  "12": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "SAM Reference Prompt"
+    },
+    "inputs": {
+      "clip": [
+        "10",
+        1
+      ],
+      "text": "human"
+    }
+  },
+  "13": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Reference Image"
+    },
+    "inputs": {
+      "image": "reference_streetwear_character.png"
+    }
+  },
+  "14": {
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "Driving Video"
+    },
+    "inputs": {
+      "file": "street_dancer.mp4"
+    }
+  },
+  "15": {
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "Driving Frames"
+    },
+    "inputs": {
+      "video": [
+        "14",
+        0
+      ]
+    }
+  },
+  "16": {
+    "class_type": "CLIPVisionEncode",
+    "_meta": {
+      "title": "Encode Reference"
+    },
+    "inputs": {
+      "clip_vision": [
+        "8",
+        0
+      ],
+      "image": [
+        "13",
+        0
+      ],
+      "crop": "none"
+    }
+  },
+  "17": {
+    "class_type": "SAM3_VideoTrack",
+    "_meta": {
+      "title": "SAM Reference Track"
+    },
+    "inputs": {
+      "images": [
+        "13",
+        0
+      ],
+      "model": [
+        "10",
+        0
+      ],
+      "conditioning": [
+        "12",
+        0
+      ],
+      "detection_threshold": 0.5,
+      "max_objects": 4,
+      "detect_interval": 1
+    }
+  },
+  "18": {
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "Segment Frames"
+    },
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "batch_index": 0,
+      "length": 81
+    }
+  },
+  "19": {
+    "class_type": "ResizeImageMaskNode",
+    "_meta": {
+      "title": "Resize Driving"
+    },
+    "inputs": {
+      "input": [
+        "18",
+        0
+      ],
+      "resize_type": "scale dimensions",
+      "resize_type.width": 512,
+      "resize_type.height": 896,
+      "resize_type.crop": "center",
+      "scale_method": "area"
+    }
+  },
+  "20": {
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Driving Size"
+    },
+    "inputs": {
+      "image": [
+        "19",
+        0
+      ]
+    }
+  },
+  "21": {
+    "class_type": "SAM3_VideoTrack",
+    "_meta": {
+      "title": "SAM Driving Track"
+    },
+    "inputs": {
+      "images": [
+        "19",
+        0
+      ],
+      "model": [
+        "10",
+        0
+      ],
+      "conditioning": [
+        "11",
+        0
+      ],
+      "detection_threshold": 0.5,
+      "max_objects": 4,
+      "detect_interval": 1
+    }
+  },
+  "22": {
+    "class_type": "SCAIL2ColoredMask",
+    "_meta": {
+      "title": "Masks"
+    },
+    "inputs": {
+      "driving_track_data": [
+        "21",
+        0
+      ],
+      "ref_track_data": [
+        "17",
+        0
+      ],
+      "object_indices": "",
+      "sort_by": "left_to_right",
+      "replacement_mode": true
+    }
+  },
+  "23": {
+    "class_type": "WanSCAILToVideo",
+    "_meta": {
+      "title": "Animate"
+    },
+    "inputs": {
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "vae": [
+        "9",
+        0
+      ],
+      "width": [
+        "20",
+        0
+      ],
+      "height": [
+        "20",
+        1
+      ],
+      "length": [
+        "20",
+        2
+      ],
+      "batch_size": 1,
+      "pose_strength": 1.0,
+      "pose_start": 0.0,
+      "pose_end": 1.0,
+      "video_frame_offset": 0,
+      "previous_frame_count": 5,
+      "pose_video": [
+        "19",
+        0
+      ],
+      "pose_video_mask": [
+        "22",
+        0
+      ],
+      "replacement_mode": true,
+      "reference_image": [
+        "13",
+        0
+      ],
+      "reference_image_mask": [
+        "22",
+        1
+      ],
+      "clip_vision_output": [
+        "16",
+        0
+      ]
+    }
+  },
+  "24": {
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "Scheduler"
+    },
+    "inputs": {
+      "model": [
+        "3",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 6,
+      "denoise": 1.0
+    }
+  },
+  "25": {
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Sampler Type"
+    },
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "26": {
+    "class_type": "SamplerCustom",
+    "_meta": {
+      "title": "Sampler"
+    },
+    "inputs": {
+      "model": [
+        "4",
+        0
+      ],
+      "add_noise": true,
+      "noise_seed": 1,
+      "cfg": 1.0,
+      "positive": [
+        "23",
+        0
+      ],
+      "negative": [
+        "23",
+        1
+      ],
+      "sampler": [
+        "25",
+        0
+      ],
+      "sigmas": [
+        "24",
+        0
+      ],
+      "latent_image": [
+        "23",
+        2
+      ]
+    }
+  },
+  "27": {
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode"
+    },
+    "inputs": {
+      "samples": [
+        "26",
+        1
+      ],
+      "vae": [
+        "9",
+        0
+      ]
+    }
+  },
+  "28": {
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "Segment Frames 2"
+    },
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "batch_index": 76,
+      "length": 81
+    }
+  },
+  "29": {
+    "class_type": "ResizeImageMaskNode",
+    "_meta": {
+      "title": "Resize Driving 2"
+    },
+    "inputs": {
+      "input": [
+        "28",
+        0
+      ],
+      "resize_type": "scale dimensions",
+      "resize_type.width": 512,
+      "resize_type.height": 896,
+      "resize_type.crop": "center",
+      "scale_method": "area"
+    }
+  },
+  "30": {
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Driving Size 2"
+    },
+    "inputs": {
+      "image": [
+        "29",
+        0
+      ]
+    }
+  },
+  "31": {
+    "class_type": "SAM3_VideoTrack",
+    "_meta": {
+      "title": "SAM Driving Track 2"
+    },
+    "inputs": {
+      "images": [
+        "29",
+        0
+      ],
+      "model": [
+        "10",
+        0
+      ],
+      "conditioning": [
+        "11",
+        0
+      ],
+      "detection_threshold": 0.5,
+      "max_objects": 4,
+      "detect_interval": 1
+    }
+  },
+  "32": {
+    "class_type": "SCAIL2ColoredMask",
+    "_meta": {
+      "title": "Masks 2"
+    },
+    "inputs": {
+      "driving_track_data": [
+        "31",
+        0
+      ],
+      "ref_track_data": [
+        "17",
+        0
+      ],
+      "object_indices": "",
+      "sort_by": "left_to_right",
+      "replacement_mode": true
+    }
+  },
+  "33": {
+    "class_type": "WanSCAILToVideo",
+    "_meta": {
+      "title": "Animate 2"
+    },
+    "inputs": {
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "vae": [
+        "9",
+        0
+      ],
+      "width": [
+        "30",
+        0
+      ],
+      "height": [
+        "30",
+        1
+      ],
+      "length": [
+        "30",
+        2
+      ],
+      "batch_size": 1,
+      "pose_strength": 1.0,
+      "pose_start": 0.0,
+      "pose_end": 1.0,
+      "video_frame_offset": 0,
+      "previous_frame_count": 5,
+      "pose_video": [
+        "29",
+        0
+      ],
+      "pose_video_mask": [
+        "32",
+        0
+      ],
+      "replacement_mode": true,
+      "reference_image": [
+        "13",
+        0
+      ],
+      "reference_image_mask": [
+        "32",
+        1
+      ],
+      "clip_vision_output": [
+        "16",
+        0
+      ],
+      "previous_frames": [
+        "27",
+        0
+      ]
+    }
+  },
+  "34": {
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "Scheduler 2"
+    },
+    "inputs": {
+      "model": [
+        "3",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 6,
+      "denoise": 1.0
+    }
+  },
+  "35": {
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Sampler Type 2"
+    },
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "36": {
+    "class_type": "SamplerCustom",
+    "_meta": {
+      "title": "Sampler 2"
+    },
+    "inputs": {
+      "model": [
+        "4",
+        0
+      ],
+      "add_noise": true,
+      "noise_seed": 1,
+      "cfg": 1.0,
+      "positive": [
+        "33",
+        0
+      ],
+      "negative": [
+        "33",
+        1
+      ],
+      "sampler": [
+        "35",
+        0
+      ],
+      "sigmas": [
+        "34",
+        0
+      ],
+      "latent_image": [
+        "33",
+        2
+      ]
+    }
+  },
+  "37": {
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode 2"
+    },
+    "inputs": {
+      "samples": [
+        "36",
+        1
+      ],
+      "vae": [
+        "9",
+        0
+      ]
+    }
+  },
+  "38": {
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "Drop Overlap 2"
+    },
+    "inputs": {
+      "image": [
+        "37",
+        0
+      ],
+      "batch_index": 5,
+      "length": 4096
+    }
+  },
+  "39": {
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "Previous Last Frame 2"
+    },
+    "inputs": {
+      "image": [
+        "27",
+        0
+      ],
+      "batch_index": -1,
+      "length": 1
+    }
+  },
+  "40": {
+    "class_type": "ColorTransfer",
+    "_meta": {
+      "title": "Color Match 2"
+    },
+    "inputs": {
+      "image_target": [
+        "38",
+        0
+      ],
+      "image_ref": [
+        "39",
+        0
+      ],
+      "method": "reinhard_lab",
+      "source_stats": "per_frame",
+      "strength": 1.0
+    }
+  },
+  "41": {
+    "class_type": "ImageBatch",
+    "_meta": {
+      "title": "Join 2"
+    },
+    "inputs": {
+      "image1": [
+        "27",
+        0
+      ],
+      "image2": [
+        "40",
+        0
+      ]
+    }
+  },
+  "42": {
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "Trim Tail"
+    },
+    "inputs": {
+      "image": [
+        "41",
+        0
+      ],
+      "batch_index": 0,
+      "length": 157
+    }
+  },
+  "43": {
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Video"
+    },
+    "inputs": {
+      "images": [
+        "42",
+        0
+      ],
+      "fps": [
+        "15",
+        2
+      ],
+      "audio": [
+        "15",
+        1
+      ]
+    }
+  },
+  "44": {
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save"
+    },
+    "inputs": {
+      "video": [
+        "43",
+        0
+      ],
+      "filename_prefix": "motion_swap/scail_result",
+      "format": "mp4",
+      "format.codec": "h264"
+    }
+  },
+  "45": {
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "Driving Trimmed"
+    },
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "batch_index": 0,
+      "length": 157
+    }
+  },
+  "46": {
+    "class_type": "ResizeImageMaskNode",
+    "_meta": {
+      "title": "Resize Driving For Compare"
+    },
+    "inputs": {
+      "input": [
+        "45",
+        0
+      ],
+      "resize_type": "scale dimensions",
+      "resize_type.width": 512,
+      "resize_type.height": 896,
+      "resize_type.crop": "center",
+      "scale_method": "area"
+    }
+  },
+  "47": {
+    "class_type": "ImageStitch",
+    "_meta": {
+      "title": "Compare"
+    },
+    "inputs": {
+      "image1": [
+        "42",
+        0
+      ],
+      "image2": [
+        "46",
+        0
+      ],
+      "direction": "right",
+      "match_image_size": true,
+      "spacing_width": 0,
+      "spacing_color": "white"
+    }
+  },
+  "48": {
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Compare Video"
+    },
+    "inputs": {
+      "images": [
+        "47",
+        0
+      ],
+      "fps": [
+        "15",
+        2
+      ]
+    }
+  },
+  "49": {
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Compare"
+    },
+    "inputs": {
+      "video": [
+        "48",
+        0
+      ],
+      "filename_prefix": "motion_swap/scail_compare",
+      "format": "mp4",
+      "format.codec": "h264"
+    }
+  }
+}
