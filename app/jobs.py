@@ -23,7 +23,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import build_workflows as B  # noqa: E402
-from comfy_client import ComfyError, collect_outputs, error_message, poll, queue_prompt, set_input  # noqa: E402
+from comfy_client import ComfyError, collect_outputs, error_message, poll, queue_contains, queue_prompt, set_input  # noqa: E402
 
 COMFY_INPUT = ROOT / "ComfyUI" / "input"
 COMFY_OUTPUT = ROOT / "ComfyUI" / "output"
@@ -273,7 +273,7 @@ def resume_pending(submit):
             continue
         for run in job["runs"]:
             if run["status"] != "done":
-                run.update(status="queued", error=None, seconds=None)
+                run.update(status="queued", error=None, seconds=None)  # prompt_id is kept so the runner can adopt it
         job["status"] = "queued"
         job["resumed"] = job.get("resumed", 0) + 1
         save_job(job)
@@ -314,6 +314,23 @@ class Runner(threading.Thread):
             finally:
                 self.current = None
 
+    def adopt(self, run):
+        """After an app restart a run may already be finished, or still rendering, in ComfyUI.
+        Returns (history entry or None, prompt_id or None): entry when finished, prompt_id when still in the
+        queue (the caller waits for it), (None, None) when it must be queued afresh."""
+        prompt_id = run.get("prompt_id")
+        if not prompt_id:
+            return None, None
+        try:
+            entry = poll(self.server, prompt_id)
+            if entry is not None:
+                return entry, prompt_id
+            if queue_contains(self.server, prompt_id):
+                return None, prompt_id
+        except ComfyError:
+            pass
+        return None, None
+
     def render(self, job_id):
         job = load_job(job_id)
         self.current = job_id
@@ -329,21 +346,22 @@ class Runner(threading.Thread):
         for run in job["runs"]:
             if run["status"] == "done":  # already rendered before a restart
                 continue
-            wf = build_workflow(base, job, run["seed"])
             t0 = time.time()
-            try:
-                prompt_id = queue_prompt(self.server, wf, client_id)
-            except ComfyError as e:
-                run["status"], run["error"] = "error", str(e)
-                save_job(job)
-                continue
+            entry, prompt_id = self.adopt(run)
+            if entry is None and prompt_id is None:
+                wf = build_workflow(base, job, run["seed"])
+                try:
+                    prompt_id = queue_prompt(self.server, wf, client_id)
+                except ComfyError as e:
+                    run["status"], run["error"] = "error", str(e)
+                    save_job(job)
+                    continue
             run["status"], run["prompt_id"] = "running", prompt_id
             save_job(job)
-            entry = None
             while entry is None:
                 time.sleep(2)
                 entry = poll(self.server, prompt_id)
-            run["seconds"] = round(time.time() - t0, 1)
+            run["seconds"] = round(time.time() - t0, 1) if run.get("seconds") is None else run["seconds"]
             if entry["status"].get("status_str") == "success":
                 run["status"] = "done"
                 run["outputs"] = collect_outputs(entry)

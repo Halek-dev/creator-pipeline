@@ -28,6 +28,16 @@ stop_all() {
 }
 if [ "${1:-}" = "stop" ]; then stop_all; exit 0; fi
 
+# "restart-app": restart only the team app (after a git pull), leaving ComfyUI, its queue and the tunnels alone.
+if [ "${1:-}" = "restart-app" ]; then
+    if [ -f "$LOGS/app.pid" ] && kill -0 "$(cat "$LOGS/app.pid")" 2>/dev/null; then kill "$(cat "$LOGS/app.pid")"; sleep 2; fi
+    rm -f "$LOGS/app.pid"
+    COMFY_SERVER="http://127.0.0.1:$PORT" APP_PORT="${APP_PORT:-7860}" GPU_HOURLY_USD="${GPU_HOURLY_USD:-1.0}" nohup "$PY" app/app.py > "$LOGS/app.log" 2>&1 &
+    echo $! > "$LOGS/app.pid"
+    sleep 6; echo "app restarted (pid $(cat "$LOGS/app.pid")); link unchanged: $(cat "$LOGS/app_public_url" 2>/dev/null)"; tail -n 3 "$LOGS/app.log"
+    exit 0
+fi
+
 if [ -f "$LOGS/comfy.pid" ] && kill -0 "$(cat "$LOGS/comfy.pid")" 2>/dev/null; then
     echo "ComfyUI already running (pid $(cat "$LOGS/comfy.pid")). Use 'bash scripts/start.sh stop' first to restart."
 else

@@ -118,5 +118,14 @@ def queue_is_idle(server):
     return not q.get("queue_running") and not q.get("queue_pending")
 
 
+def queue_contains(server, prompt_id):
+    """True while ComfyUI still has this prompt running or waiting (queue items are [number, prompt_id, ...])."""
+    q = request(server, "/queue")
+    for item in list(q.get("queue_running", [])) + list(q.get("queue_pending", [])):
+        if len(item) > 1 and item[1] == prompt_id:
+            return True
+    return False
+
+
 def start_hint():
     return "scripts\\start.ps1 -Cpu" if sys.platform == "win32" else "bash scripts/start.sh"
