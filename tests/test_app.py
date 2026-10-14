@@ -152,8 +152,9 @@ class JobStorageTests(unittest.TestCase):
                 self.assertTrue((J.COMFY_INPUT / job["inputs"]["image"]).exists())
                 self.assertEqual(J.load_job(job["id"])["id"], job["id"])
                 self.assertEqual(J.list_jobs()[0]["id"], job["id"])
-                # (6 min * 2 passes + 3 min finishing * 2 passes) * 3 seeds = 54 min
-                self.assertAlmostEqual(job["cost"]["estimate_minutes"], 54.0)
+                # (tier minutes * 2 passes + finishing minutes * 2 passes) * 3 seeds
+                tier, fin = p["tiers"]["Standard"]["minutes_per_clip"], p["finishing"]["minutes_per_clip"]
+                self.assertAlmostEqual(job["cost"]["estimate_minutes"], (tier * 2 + fin * 2) * 3)
             finally:
                 J.COMFY_INPUT, J.JOBS_DIR = old_in, old_jobs
 
