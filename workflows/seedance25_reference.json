@@ -24,12 +24,12 @@
     },
     "inputs": {
       "model": "Seedance 2.5",
-      "model.prompt": "A young woman with dark hair in a high bun, black crop top and wide cargo pants, dancing energetically in a bright photo studio.",
+      "model.prompt": "In @Video1, replace the person with the character from @Image1. Keep the scene, camera and choreography of @Video1.",
       "model.resolution": "720p",
       "model.ratio": "9:16",
       "model.duration": 5,
       "model.generate_audio": true,
-      "model.task_type": "reference",
+      "model.task_type": "edit",
       "model.output_format": "mp4",
       "model.reference_images.image_1": [
         "1",

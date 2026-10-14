@@ -11,9 +11,13 @@ from comfy_client import queue_prompt  # noqa: E402
 
 class SeedanceBuildTests(unittest.TestCase):
     def test_graph(self):
-        wf = SD.build(prompt="P", resolution="720p", ratio="9:16", duration=7.4, seed=5)
+        wf = SD.build(prompt="P", resolution="720p", ratio="9:16", duration=7.4, seed=5, task_type="edit")
         t = SD.by_title(wf)
         s = wf[t["Seedance"]]["inputs"]
+        self.assertEqual(s["model.task_type"], "edit")
+        self.assertEqual(s["model"], "Seedance 2.5")
+        with self.assertRaises(ValueError):
+            SD.build(task_type="remix")
         self.assertEqual(s["model.reference_images.image_1"], [t["Reference Image"], 0])
         self.assertEqual(s["model.reference_videos.video_1"], [t["Driving Video"], 0])
         self.assertEqual(s["model.duration"], 7)

@@ -24,21 +24,29 @@ def clamp_duration(seconds):
     return int(min(30, max(4, round(seconds))))
 
 
-def build(prompt="A young woman with dark hair in a high bun, black crop top and wide cargo pants, dancing energetically in a bright photo studio.",
-          resolution="720p", ratio="9:16", duration=5, audio=True, seed=0):
+TASK_TYPES = ("reference", "edit")
+MODELS = ("Seedance 2.5", "Seedance 2.5 Draft")
+
+
+def build(prompt="In @Video1, replace the person with the character from @Image1. Keep the scene, camera and choreography of @Video1.",
+          resolution="720p", ratio="9:16", duration=5, audio=True, seed=0, task_type="edit", model="Seedance 2.5"):
+    """task_type "edit" changes the driving video itself (the person is replaced, length and framing are kept: the
+    motion-swap mode); "reference" makes a new clip guided by the files. Prompts name the files as @Image1 / @Video1."""
     if resolution not in RESOLUTIONS or ratio not in RATIOS:
         raise ValueError(f"resolution must be one of {RESOLUTIONS}, ratio one of {RATIOS}")
+    if task_type not in TASK_TYPES or model not in MODELS:
+        raise ValueError(f"task_type must be one of {TASK_TYPES}, model one of {MODELS}")
     wf = {}
     ref = add(wf, "LoadImage", "Reference Image", {"image": "reference_streetwear_character.png"})
     vid = add(wf, "LoadVideo", "Driving Video", {"file": "street_dancer.mp4"})
     gen = add(wf, "ByteDance2ReferenceNodeV2", "Seedance", {
-        "model": "Seedance 2.5",
+        "model": model,
         "model.prompt": prompt,
         "model.resolution": resolution,
         "model.ratio": ratio,
         "model.duration": clamp_duration(duration),
         "model.generate_audio": bool(audio),
-        "model.task_type": "reference",
+        "model.task_type": task_type,
         "model.output_format": "mp4",
         "model.reference_images.image_1": [ref, 0],
         "model.reference_videos.video_1": [vid, 0],

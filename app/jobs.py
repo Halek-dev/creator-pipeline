@@ -179,14 +179,34 @@ def build_scail_workflow(job, seed):
     return wf
 
 
+SEEDANCE_MODES = {"edit": "Swap into the video (keeps its background and timing)", "reference": "New scene from the text"}
+
+
+def seedance_prompt(mode, appearance, background, motion):
+    """Seedance wants the files named in the prompt: @Image1 is the reference image, @Video1 the driving video."""
+    looks = appearance.strip().rstrip(".")
+    if mode == "edit":
+        return (f"In @Video1, replace the person with the character from @Image1: {looks}. Keep the scene, background, lighting, "
+                "camera movement, choreography, body posture and timing exactly as in @Video1. Keep the face, hairstyle and outfit "
+                "consistent with @Image1. No background change, no camera change, no body deformation.")
+    return (f"The character from @Image1 ({looks}) performs exactly the same dance choreography, body posture, rhythm and timing as the "
+            f"person in @Video1, move for move. Do not copy the dancer's appearance, clothing or background. "
+            f"Scene: {background.strip().rstrip('.')}. The person is {motion.strip().rstrip('.')}.")
+
+
 def build_seedance_workflow(job, seed):
-    """Seedance renders the whole driving clip's length (4-30 s) in one call; tier picks the resolution."""
+    """Seedance in one call. "edit" (default) swaps the character into the driving video and keeps its length and
+    framing; "reference" makes a new clip (4-30 s) in the scene from the text. Tier picks the resolution; Fast uses
+    the cheaper Draft model."""
     opts = job["options"]
     fps = float(opts.get("fps") or 24)
     seconds = (opts.get("frames") or 5 * fps) / fps
-    prompt = f"{job['prompts']['character']} The person is {job['prompts']['motion'].rstrip('.')}."
+    mode = opts.get("seedance_mode", "edit")
+    appearance = (job["prompts"]["character"].split("Character appearance description: ", 1)[-1].split(". Background description:", 1)[0])
+    background = job["prompts"]["character"].split("Background description: ", 1)[-1]
+    prompt = seedance_prompt(mode, appearance, background, job["prompts"]["motion"])
     wf = SD.build(prompt=prompt, resolution=SEEDANCE_RESOLUTION.get(job["tier"], "720p"), ratio="9:16" if _portrait(opts) else "16:9",
-                  duration=seconds, audio=True, seed=seed)
+                  duration=seconds, audio=True, seed=seed, task_type=mode, model="Seedance 2.5 Draft" if job["tier"] == "Fast" else "Seedance 2.5")
     set_input(wf, "Reference Image.image", job["inputs"]["image"])
     set_input(wf, "Driving Video.file", job["inputs"]["video"])
     _set_outputs(wf, job, seed, False)
@@ -233,7 +253,9 @@ def render_settings(job):
         size = "512×896" if _portrait(opts) else "896×512"
         return f"SCAIL-2 int8 + DPO + distill LoRA, {size}, 6 steps, motion looseness {s['motion_looseness']} (Identity hold does not apply)"
     if engine == "seedance":
-        return f"Seedance 2.5 at {SEEDANCE_RESOLUTION.get(job['tier'], '720p')}, {'9:16' if _portrait(opts) else '16:9'}, with sound (sliders do not apply)"
+        mode = opts.get("seedance_mode", "edit")
+        return (f"Seedance 2.5{' Draft' if job['tier'] == 'Fast' else ''} at {SEEDANCE_RESOLUTION.get(job['tier'], '720p')}, "
+                f"{SEEDANCE_MODES.get(mode, mode).lower()}, with sound (sliders do not apply)")
     return f"Identity hold {s['identity_hold']}, motion looseness {s['motion_looseness']}, {t['width']}×{t['height']}, {t['steps']} steps, model {t.get('model', 'distilled')}"
 
 
@@ -274,7 +296,7 @@ def seedance_cap(presets):
 
 
 def new_job(image_path, video_path, character_name, appearance, scene_name, scene, tier_name, tier, seeds,
-            note="", chunks=1, finishing=False, info=None, engine="wan"):
+            note="", chunks=1, finishing=False, info=None, engine="wan", seedance_mode="edit"):
     presets = load_presets()
     info = info or {}
     seeds = max(1, min(MAX_SEEDS, int(seeds)))
@@ -300,7 +322,8 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
         "tier": tier_name,
         "tier_settings": {"model": tier.get("model", "distilled"), "width": tier["width"], "height": tier["height"], "steps": tier["steps"]},
         "options": {"chunks": chunks, "finishing": bool(finishing), "frames": info.get("frames"), "fps": info.get("fps"),
-                    "video_w": info.get("video_w"), "video_h": info.get("video_h")},
+                    "video_w": info.get("video_w"), "video_h": info.get("video_h"),
+                    **({"seedance_mode": seedance_mode if seedance_mode in SEEDANCE_MODES else "edit"} if engine == "seedance" else {})},
         "settings": {"identity_hold": float(scene.get("identity_hold", 1.0)), "motion_looseness": float(scene.get("motion_looseness", 1.0))},
         "inputs": {"image": stage_input(image_path, job_id, "ref"), "video": stage_input(video_path, job_id, "drive")},
         "prompts": {"character": character_prompt, "motion": motion_prompt, "negative": presets["negative_prompt"]},

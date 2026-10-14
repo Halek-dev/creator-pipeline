@@ -201,7 +201,7 @@ def bootstrap():
         "scenes": {k: {"background": v.get("background", ""), "motion": v.get("motion", ""), "identity_hold": float(v.get("identity_hold", 1.0)),
                        "motion_looseness": float(v.get("motion_looseness", 1.0))} for k, v in p["scenes"].items()},
         "tiers": {k: {"note": v.get("note", ""), "minutes_per_clip": v.get("minutes_per_clip"), "width": v.get("width"), "height": v.get("height")} for k, v in p["tiers"].items()},
-        "gpu_hourly_usd": J.GPU_HOURLY_USD, "max_seeds": J.MAX_SEEDS, "max_chunks": J.MAX_CHUNKS,
+        "gpu_hourly_usd": J.GPU_HOURLY_USD, "max_seeds": J.MAX_SEEDS, "max_chunks": J.MAX_CHUNKS, "seedance_modes": J.SEEDANCE_MODES,
         "describe_available": D.credentials_available(), "seedance_available": bool(J.COMFY_API_KEY),
         "auth": bool(APP_PASSWORD), "status": status_info(),
     }
@@ -327,6 +327,7 @@ class JobIn(BaseModel):
     chunks: int = 1
     finishing: bool = False
     note: str = ""
+    seedance_mode: str = "edit"
 
 
 @app.post("/api/jobs")
@@ -357,7 +358,7 @@ def create_job(body: JobIn):
     chunks = min(max(1, body.chunks), max(allowed) if allowed else 1)
     scene = {"background": body.background, "motion": body.motion, "identity_hold": body.identity_hold, "motion_looseness": body.motion_looseness}
     job = J.new_job(str(image), str(video), body.character, body.appearance, body.scene, scene, body.tier, p["tiers"][body.tier], body.seeds, body.note,
-                    chunks=chunks, finishing=body.finishing, info=info, engine=engine)
+                    chunks=chunks, finishing=body.finishing, info=info, engine=engine, seedance_mode=body.seedance_mode)
     RUNNER.submit(job["id"])
     return summary(job)
 

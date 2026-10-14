@@ -84,8 +84,13 @@
   }
   function engineHint() {
     const h = { wan: "Background and camera come from the scene text.", scail: "The character is swapped into the original video; background, lighting and camera are kept. Identity hold does not apply.",
-                seedance: "ByteDance's model with sound, billed in Comfy credits. No GPU needed. Finish and the sliders do not apply." }[state.engine];
+                seedance: "ByteDance's model with sound, billed in Comfy credits. No GPU needed. Swap mode keeps the driving video's background and length; Fast uses the cheaper Draft model. Finish and the sliders do not apply." }[state.engine];
     const needKey = state.engine === "seedance" && !state.boot.seedance_available;
+    $("#seg-seedance-mode").hidden = state.engine !== "seedance";
+    if (state.engine === "seedance" && !$("#seg-seedance-mode").children.length) {
+      state.seedanceMode = state.seedanceMode || "edit";
+      seg($("#seg-seedance-mode"), Object.entries(state.boot.seedance_modes).map(([k, v]) => ({ value: k, label: v, title: v })), state.seedanceMode, v => { state.seedanceMode = v; estimate(); });
+    }
     $("#engine-hint").textContent = h + (needKey ? " Connect your Comfy account below to use it." : "");
     $("#comfy-keyform").hidden = !needKey;
     $("#anthropic-keyform").hidden = state.boot.describe_available;
@@ -194,6 +199,7 @@
         scene: $("#sel-scene").value, background: $("#background").value, motion: $("#motion").value,
         identity_hold: parseFloat($("#identity_hold").value) || 1, motion_looseness: parseFloat($("#motion_looseness").value) || 1,
         tier: state.tier, seeds: state.seeds, chunks: state.chunks, finishing: $("#finishing").checked, note: $("#note").value,
+        seedance_mode: state.seedanceMode || "edit",
       });
       toast(`Queued. ${job.seeds} seed${job.seeds > 1 ? "s" : ""}, about ${Math.round(job.estimate_minutes)} minutes.`);
       state.jobs.unshift(job); job._new = true; renderGrid();

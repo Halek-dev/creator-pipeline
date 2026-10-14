@@ -140,9 +140,15 @@ class SeedanceEngineTests(unittest.TestCase):
         self.assertEqual(s["model.resolution"], "1080p")
         self.assertEqual(s["model.ratio"], "9:16")
         self.assertEqual(s["model.duration"], 5)          # 121 frames / 24 fps, rounded, clamped to 4-30
-        self.assertEqual(s["model.task_type"], "reference")
+        self.assertEqual(s["model.task_type"], "edit")  # default: swap the character into the driving video
         self.assertEqual(s["seed"], 3)
-        self.assertTrue(s["model.prompt"].startswith("C The person is M"))
+        self.assertTrue(s["model.prompt"].startswith("In @Video1, replace the person with the character from @Image1"))
+        job["options"]["seedance_mode"], job["tier"] = "reference", "Fast"
+        s2 = {n["_meta"]["title"]: n["inputs"] for n in J.build_workflow(None, job, 3).values()}["Seedance"]
+        self.assertEqual(s2["model.task_type"], "reference")
+        self.assertEqual(s2["model"], "Seedance 2.5 Draft")
+        self.assertIn("same dance choreography", s2["model.prompt"])
+        self.assertIn("@Video1", s2["model.prompt"])
         self.assertEqual(by_title["Reference Image"]["image"], "app_j1_ref.png")
         self.assertEqual(by_title["Save"]["filename_prefix"], "motion_swap/j1/s3_result")
         self.assertEqual([c[0] for c in J.length_choices(121, "seedance", 24.0)], ["5 s (whole clip)"])
@@ -277,7 +283,7 @@ class ReviewFixTests(unittest.TestCase):
         self.assertNotIn("480×848", J.render_settings(scail))
         seed = sample_job(engine="seedance", tier="High", options={"video_w": 1080, "video_h": 1920})
         self.assertIn("1080p", J.render_settings(seed))
-        self.assertIn("9:16", J.render_settings(seed))
+        self.assertIn("swap into the video", J.render_settings(seed))
 
     def test_new_job_clamps_seeds_and_passes(self):
         with tempfile.TemporaryDirectory() as d:

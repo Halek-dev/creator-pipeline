@@ -47,3 +47,10 @@ Phase 3: auto background prompt, SCAIL-2 replace-into-video, Seedance 2.5 refere
 Code review of app/tools/scripts: 21 findings, all fixed, suite grown to 57 tests. Notable: the runner no longer waits forever when ComfyUI restarts mid-job (it requeues once), a transient poll error no longer fails a job, the public link takes a password, `validate_workflow.py` no longer interrupts other people's renders, `setup.sh` fails loudly when pip fails, the watchdog retries a failed stop.
 
 Phase 4 delivered without a GPU session: team guide with screenshots (taken from the app running locally against three demo jobs built from the Phase 2 clips), update procedure, Costs tab and report, pod helper script (untested against a live RunPod account). Still to measure: SCAIL-2 and Seedance on the reference pair (Phase 3.4).
+
+## 14 Oct 2026, Seedance 2.5 on the laptop (no GPU)
+
+First live Seedance job through the new front end: streetwear reference + 14 s street dancer clip, tier High (1080p), task type "reference". Rendered in about 7 minutes with sound. **Cost: 2,800 Comfy credits (about $13.30 at 211 credits per dollar)**, far above the app's estimate; the Comfy account went negative. Fixes: prices now in measured credits (200 per second at 1080p), a 600-credit cap refuses bigger jobs, the compare clip is built by the app instead of inside ComfyUI (the ComfyUI compare step ran out of RAM on the laptop after the paid render had been saved; the clip was recovered).
+
+**Result:** identity, outfit and 1080p finish are good; the choreography only loosely follows the driving video and the timing drifts. Cause: we used task type "reference" with a plain description. The node's "edit" mode replaces the person in the uploaded video itself and keeps its length and framing, and Seedance prompts should name the files as @Image1 / @Video1. The app now defaults Seedance to "Swap into the video" (edit) with an @-referenced prompt, offers "New scene from the text" (reference) as the alternative, and uses the cheaper Seedance 2.5 Draft model for the Fast tier. Not yet re-rendered in edit mode (needs a Comfy top-up; a 5 s clip at 720p is about 450 credits).
+
