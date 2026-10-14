@@ -24,11 +24,11 @@ The pod **stops itself** after 20 minutes without a job, so nobody has to rememb
 
 ![New clip](images/app-new-clip.png)
 
-Left to right, top to bottom:
+The page is four numbered cards. In order:
 
 1. **Reference image**: who. Full body, facing the camera, face clearly visible, plain background. 1024 px or larger on the long side.
 2. **Driving video**: what they do. One person, full body, at least 3.5 seconds. Portrait video for the default engine.
-3. Press **Check inputs**. Green lines mean go; a warning tells you what will lower quality; a red line blocks the job and says why.
+3. The check runs by itself as soon as both are in. A warning tells you what will lower quality; a red line blocks the job and says why.
 4. **Engine**:
    - **Wan Animate 2** (default): the background and camera come from the scene text. Best for "our character in a studio / on a street at night".
    - **SCAIL-2 (keep the video's background)**: the character is swapped *into* the original video, background and all.
@@ -38,15 +38,16 @@ Left to right, top to bottom:
 7. **Length**: how many 81-frame passes (about 3.4 s each at 24 fps). Only lengths your video can cover are offered.
 8. **Seeds**: how many variations to render. Three is a good default; pick the best on the Jobs tab.
 9. **Finish**: doubles resolution and frame rate (1440×2560 at 48 fps from the High tier) and adds a touch of film grain. Roughly doubles the time.
-10. The estimate line shows minutes and dollars before you press **Run**.
+10. **Identity hold** and **Motion looseness** sit under *Fine tuning*; leave them alone unless a preset tells you otherwise.
+11. The purple box shows minutes and dollars before you press **Render clip**.
 
-Press **Run**. The job goes into a queue; you can close the page.
+Press **Render clip**. The job goes into a queue; you can close the page.
 
 ## 3. Jobs: pick a seed, download
 
 ![Jobs](images/app-jobs.jpg)
 
-The table refreshes by itself. Click a row:
+The table refreshes by itself and the newest job opens on its own. Click any row:
 
 - **Contact sheets**: six frames and a face strip per seed. Pick the seed with the cleanest face and hands before watching anything.
 - **Preview**: the compare video, result on the left, your driving video on the right.

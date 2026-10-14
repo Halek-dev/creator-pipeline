@@ -16,6 +16,7 @@ import gradio as gr
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import describe as D  # noqa: E402
 import jobs as J  # noqa: E402
+from theme import CSS, FORCE_DARK_JS, THEME  # noqa: E402
 
 RUNNER = J.Runner()
 RUNNER.start()
@@ -41,6 +42,13 @@ HELP = """
 
 **Platform rules**: only characters we invented or people who signed consent; label AI content; vary content types (all-motion-control feeds get shadowbanned).
 """
+
+
+def status_chip():
+    """The status line as a small pill with a green (idle) or amber (busy) dot."""
+    text = status_line()
+    busy = "rendering" in text or "waiting" in text
+    return f'<div class="status-chip{" busy" if busy else ""}">{text}</div>'
 
 
 def status_line():
@@ -156,9 +164,9 @@ def jobs_table():
     return rows, ids
 
 
-def refresh_jobs():
+def refresh_jobs():  # status goes back as the chip html
     rows, ids = jobs_table()
-    return rows, ids, status_line()
+    return rows, ids, status_chip()
 
 
 def on_select_job(ids, evt: gr.SelectData):
@@ -249,42 +257,52 @@ def build():
     p = presets()
     char_names, scene_names, tier_names = list(p["characters"]), list(p["scenes"]), list(p["tiers"])
     first_scene = p["scenes"][scene_names[0]]
-    with gr.Blocks(title="Creator Pipeline") as demo:
-        gr.Markdown("# Motion swap")
-        status = gr.Markdown(status_line())
+    with gr.Blocks(title="Creator Pipeline", theme=THEME, css=CSS, js=FORCE_DARK_JS) as demo:
+        with gr.Row(elem_classes=["hero"]):
+            gr.HTML('<div class="brand"><div class="logo">▶</div><div><h1>Motion swap studio</h1>'
+                    '<p class="tag">Your character, any move. Upload, pick a look, render, download.</p></div></div>')
+            status = gr.HTML(status_chip())
         start_tab = os.environ.get("APP_START_TAB", "new")
         with gr.Tabs(selected=start_tab if start_tab in ("new", "jobs", "sheet", "costs", "help") else "new"):
             with gr.Tab("New clip", id="new"):
                 info_state = gr.State({})
-                with gr.Row():
-                    with gr.Column():
-                        image = gr.Image(type="filepath", label="Reference image (who)", height=300)
-                        video = gr.Video(label="Driving video (what motion)", height=300)
-                        preflight_md = gr.Markdown("Add an image and a video.")
-                    with gr.Column():
-                        engine = gr.Radio(list(J.ENGINES), value=list(J.ENGINES)[0], label="Engine")
-                        character = gr.Dropdown(char_names, value=char_names[0], label="Character")
-                        appearance = gr.Textbox(p["characters"][char_names[0]]["appearance"], label="Looks (no motion words)", lines=2)
-                        scene = gr.Dropdown(scene_names, value=scene_names[0], label="Scene preset")
-                        background = gr.Textbox(first_scene["background"], label="Background", lines=2)
-                        with gr.Row():
-                            describe_source = gr.Radio(["reference image", "driving video"], value="reference image", label="Describe the scene from", scale=3)
-                            describe_btn = gr.Button("Describe", scale=1)
-                        describe_md = gr.Markdown("")
-                        motion = gr.Textbox(first_scene["motion"], label="What the person is doing", lines=1)
-                        with gr.Row():
-                            identity_hold = gr.Slider(0.8, 1.5, value=float(first_scene.get("identity_hold", 1.0)), step=0.05, label="Identity hold")
-                            motion_looseness = gr.Slider(0.5, 1.0, value=float(first_scene.get("motion_looseness", 1.0)), step=0.05, label="Motion looseness")
-                        with gr.Row():
+                with gr.Row(equal_height=False):
+                    with gr.Column(scale=5):
+                        with gr.Group(elem_classes=["step"]):
+                            gr.HTML('<div class="step-title"><span class="n">1</span><h3>Inputs</h3><span class="hint">who + what move</span></div>')
+                            with gr.Row():
+                                image = gr.Image(type="filepath", label="Reference image (who)", height=320, elem_classes=["upload-tile"])
+                                video = gr.Video(label="Driving video (what motion)", height=320, elem_classes=["upload-tile"])
+                            preflight_md = gr.Markdown("Add an image and a video. The check runs by itself.", elem_classes=["preflight"])
+                        with gr.Group(elem_classes=["step"]):
+                            gr.HTML('<div class="step-title"><span class="n">2</span><h3>Look</h3><span class="hint">engine, character, scene</span></div>')
+                            engine = gr.Radio(list(J.ENGINES), value=list(J.ENGINES)[0], label="Engine")
+                            with gr.Row():
+                                character = gr.Dropdown(char_names, value=char_names[0], label="Character")
+                                scene = gr.Dropdown(scene_names, value=scene_names[0], label="Scene preset")
+                            appearance = gr.Textbox(p["characters"][char_names[0]]["appearance"], label="Looks (no motion words)", lines=2)
+                            background = gr.Textbox(first_scene["background"], label="Background", lines=2)
+                            with gr.Row():
+                                describe_source = gr.Radio(["reference image", "driving video"], value="reference image", label="Describe the scene from", scale=3)
+                                describe_btn = gr.Button("✨ Describe", scale=1)
+                            describe_md = gr.Markdown("")
+                            motion = gr.Textbox(first_scene["motion"], label="What the person is doing", lines=1)
+                    with gr.Column(scale=4):
+                        with gr.Group(elem_classes=["step"]):
+                            gr.HTML('<div class="step-title"><span class="n">3</span><h3>Quality</h3><span class="hint">tier, length, variations</span></div>')
                             tier = gr.Radio(tier_names, value="Standard", label="Quality tier")
-                            seeds = gr.Slider(1, 4, value=2, step=1, label="Seeds (variations)")
-                        with gr.Row():
-                            length = gr.Radio([], label="Clip length (set after the video is checked)", interactive=False)
+                            length = gr.Radio([], label="Clip length (appears after the video is checked)", interactive=False)
+                            seeds = gr.Slider(1, 4, value=2, step=1, label="Seeds (variations to pick from)")
                             finishing = gr.Checkbox(False, label="Finish: upscale ×2, double frame rate, sound")
-                        tier_md = gr.Markdown(estimate_text("Standard", 2, 1, False))
-                        note = gr.Textbox(label="Note (optional)", lines=1)
-                        run = gr.Button("Run", variant="primary")
-                        result_md = gr.Markdown("")
+                            with gr.Accordion("Fine tuning", open=False):
+                                identity_hold = gr.Slider(0.8, 1.5, value=float(first_scene.get("identity_hold", 1.0)), step=0.05, label="Identity hold")
+                                motion_looseness = gr.Slider(0.5, 1.0, value=float(first_scene.get("motion_looseness", 1.0)), step=0.05, label="Motion looseness")
+                            tier_md = gr.Markdown(estimate_text("Standard", 2, 1, False), elem_classes=["estimate"])
+                        with gr.Group(elem_classes=["step"]):
+                            gr.HTML('<div class="step-title"><span class="n">4</span><h3>Render</h3></div>')
+                            note = gr.Textbox(label="Note (optional)", lines=1, placeholder="e.g. TikTok teaser, try 2")
+                            run = gr.Button("▶  Render clip", variant="primary", elem_classes=["run-btn"])
+                            result_md = gr.Markdown("")
                 image.change(on_preflight, [image, video, engine], [preflight_md, length, info_state])
                 video.change(on_preflight, [image, video, engine], [preflight_md, length, info_state])
                 engine.change(on_preflight, [image, video, engine], [preflight_md, length, info_state])
@@ -307,24 +325,34 @@ def build():
             with gr.Tab("Jobs", id="jobs"):
                 rows, ids = jobs_table()
                 ids_state = gr.State(ids)
-                table = gr.Dataframe(value=rows, headers=["Job", "Created", "Status", "Character", "Scene", "Tier", "Done", "Cost"], interactive=False, wrap=True)
-                detail = gr.Markdown("Select a job to see details and downloads.")
-                sheets = gr.Gallery(label="Contact sheets (pick a seed)", columns=2, height=360)
-                preview = gr.Video(label="Preview (compare: result left, driving video right)", height=420)
-                downloads = gr.Files(label="Downloads")
+                table = gr.Dataframe(value=rows, headers=["Job", "Created", "Status", "Character", "Scene", "Tier", "Done", "Cost"], interactive=False, wrap=True, elem_classes=["jobs-table"])
+                with gr.Row(equal_height=False):
+                    with gr.Column(scale=5):
+                        with gr.Group(elem_classes=["step"]):
+                            gr.HTML('<div class="step-title"><h3>Preview</h3><span class="hint">result left, driving video right</span></div>')
+                            preview = gr.Video(label="Compare", height=460, show_label=False)
+                        with gr.Group(elem_classes=["step"]):
+                            gr.HTML('<div class="step-title"><h3>Pick a seed</h3><span class="hint">six frames + a face strip per seed</span></div>')
+                            sheets = gr.Gallery(label="Contact sheets", columns=2, height=320, show_label=False)
+                    with gr.Column(scale=4):
+                        with gr.Group(elem_classes=["step"]):
+                            gr.HTML('<div class="step-title"><h3>Details</h3></div>')
+                            detail = gr.Markdown("Select a job to see details and downloads.", elem_classes=["detail"])
+                            downloads = gr.Files(label="Downloads")
                 timer = gr.Timer(5)
                 timer.tick(refresh_jobs, None, [table, ids_state, status])
                 table.select(on_select_job, ids_state, [detail, preview, downloads, sheets])
                 demo.load(show_latest_job, ids_state, [detail, preview, downloads, sheets])
 
             with gr.Tab("Job sheet", id="sheet"):
-                gr.Markdown("Bulk mode. Upload a CSV with columns `image,video,character,scene,seeds,passes,note` and optionally `engine` (wan, scail or seedance). `image` and `video` are file names already in `ComfyUI/input` (upload them via Jupyter). Character and scene are preset names; `passes` is 1–3 (capped by the video length).")
+                gr.HTML('<div class="step-title"><h3>Bulk mode</h3><span class="hint">one CSV row = one job</span></div>')
+                gr.Markdown("Upload a CSV with columns `image,video,character,scene,seeds,passes,note` and optionally `engine` (wan, scail or seedance). `image` and `video` are file names already in `ComfyUI/input` (upload them via Jupyter). Character and scene are preset names; `passes` is 1–3 (capped by the video length).")
                 sheet = gr.File(label="CSV", file_types=[".csv"])
                 with gr.Row():
                     sheet_engine = gr.Radio(list(J.ENGINES), value=list(J.ENGINES)[0], label="Engine for rows without one")
                     sheet_tier = gr.Radio(tier_names, value="Standard", label="Quality tier for all rows")
                     sheet_finish = gr.Checkbox(False, label="Finish for all rows")
-                sheet_btn = gr.Button("Queue all rows")
+                sheet_btn = gr.Button("Queue all rows", variant="primary")
                 sheet_md = gr.Markdown("")
                 sheet_btn.click(on_sheet, [sheet, sheet_tier, sheet_finish, sheet_engine], sheet_md)
 
@@ -333,11 +361,11 @@ def build():
                             f"**Pod $ (est.)** is what the pod most likely billed: the span of each day's jobs plus the watchdog's {J.IDLE_ALLOWANCE_MIN:.0f}-minute idle allowance "
                             "and a few minutes of start-up. **Seedance $** is Comfy credits, not GPU time. Check the real numbers on RunPod → Billing and comfy.org → Credits.")
                 cost_table = gr.Dataframe(value=J.cost_rows(J.cost_summary()), headers=J.COST_HEADERS, interactive=False)
-                cost_btn = gr.Button("Refresh")
+                cost_btn = gr.Button("Refresh", variant="secondary")
                 cost_btn.click(lambda: J.cost_rows(J.cost_summary()), None, cost_table)
 
             with gr.Tab("Help", id="help"):
-                gr.Markdown(HELP)
+                gr.Markdown(HELP, elem_classes=["help"])
     return demo
 
 

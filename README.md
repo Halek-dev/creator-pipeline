@@ -73,7 +73,7 @@ High tier and Finish need extra models once per volume: `bash scripts/setup.sh w
 
 **Engines.** *Wan Animate 2* (default; background from the scene text), *SCAIL-2* (swaps the character into the original video, keeps its background; `bash scripts/setup.sh scail2`, [tools/build_scail.py](tools/build_scail.py)), and *Seedance 2.5* (ByteDance's paid model through ComfyUI's API node, no GPU; needs `COMFY_API_KEY`; [tools/build_seedance.py](tools/build_seedance.py)). The **Describe** button fills the background text from the reference image or the driving video with Claude (needs `ANTHROPIC_API_KEY`).
 
-Put a password on the public link with `APP_PASSWORD` (login as `team`). The **Costs** tab (and `tools/cost_report.py`) sums render time, the estimated pod bill and Seedance credits per month. For the people who only use the app: [docs/TEAM_GUIDE.md](docs/TEAM_GUIDE.md). For whoever maintains it: [docs/UPDATING.md](docs/UPDATING.md) (pinned versions, update procedure) and `tools/pod.py` (start/stop the RunPod pod from a laptop with `RUNPOD_API_KEY`).
+The look (dark, video-studio style) lives in [app/theme.py](app/theme.py). Put a password on the public link with `APP_PASSWORD` (login as `team`). The **Costs** tab (and `tools/cost_report.py`) sums render time, the estimated pod bill and Seedance credits per month. For the people who only use the app: [docs/TEAM_GUIDE.md](docs/TEAM_GUIDE.md). For whoever maintains it: [docs/UPDATING.md](docs/UPDATING.md) (pinned versions, update procedure) and `tools/pod.py` (start/stop the RunPod pod from a laptop with `RUNPOD_API_KEY`).
 
 ```bash
 .venv/bin/python app/app.py     # run the app on its own (ComfyUI must be up)
