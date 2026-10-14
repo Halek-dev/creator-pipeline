@@ -10,7 +10,7 @@
     {
       "name": "team-app",
       "runtimeExecutable": ".venv\\Scripts\\python.exe",
-      "runtimeArgs": ["app\\app.py"],
+      "runtimeArgs": ["app\\web\\server.py"],
       "port": 7860
     }
   ]

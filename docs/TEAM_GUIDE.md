@@ -4,9 +4,7 @@ One page for the people who use the app, not the people who maintain it. You nee
 
 ## 1. Is the pod on?
 
-The app only works while the GPU pod is running. Someone with the RunPod account starts it (below); when it is up, the link looks like `https://<random-words>.trycloudflare.com`. Open it and log in as **team** with the shared password.
-
-![Login](images/app-login.png)
+The app only works while the GPU pod is running. Someone with the RunPod account starts it (below); when it is up, the link looks like `https://<random-words>.trycloudflare.com`. Open it; the browser asks for a user name and password. User is **team**, password is the shared one.
 
 If the page does not load, the pod is off. Ask the pod owner to start it, or start it yourself if you have the RunPod account:
 
@@ -20,42 +18,34 @@ If the page does not load, the pod is off. Ask the pod owner to start it, or sta
 
 The pod **stops itself** after 20 minutes without a job, so nobody has to remember to turn it off. Starting it again is step 1–4.
 
-## 2. New clip
+## 2. Create
 
-![New clip](images/app-new-clip.png)
+![Create](images/app-create.png)
 
-The page is four numbered cards. In order:
+The left panel is the whole job, top to bottom. The right side is your recent clips.
 
-1. **Reference image**: who. Full body, facing the camera, face clearly visible, plain background. 1024 px or larger on the long side.
-2. **Driving video**: what they do. One person, full body, at least 3.5 seconds. Portrait video for the default engine.
-3. The check runs by itself as soon as both are in. A warning tells you what will lower quality; a red line blocks the job and says why.
-4. **Engine**:
-   - **Wan Animate 2** (default): the background and camera come from the scene text. Best for "our character in a studio / on a street at night".
-   - **SCAIL-2 (keep the video's background)**: the character is swapped *into* the original video, background and all.
-   - **Seedance 2.5 (paid, no GPU)**: ByteDance's model with sound, billed in Comfy credits; use for comparison or when the pod is off.
-5. **Character** and **Scene** presets fill in the looks, the background text and the sliders. Edit the text if you want. **Describe from image/video** writes the background text from what is actually in your reference image or video.
-6. **Quality tier**: Fast for trying things, Standard for most clips, High for the final one.
-7. **Length**: how many 81-frame passes (about 3.4 s each at 24 fps). Only lengths your video can cover are offered.
-8. **Seeds**: how many variations to render. Three is a good default; pick the best on the Jobs tab.
-9. **Finish**: doubles resolution and frame rate (1440×2560 at 48 fps from the High tier) and adds a touch of film grain. Roughly doubles the time.
-10. **Identity hold** and **Motion looseness** sit under *Fine tuning*; leave them alone unless a preset tells you otherwise.
-11. The purple box shows minutes and dollars before you press **Render clip**.
+1. **Inputs**: drop the reference image (who) and the driving video (the move). The check runs by itself: green lines are fine, amber lines tell you what will lower quality, a red line blocks the job and says why.
+2. **Engine**: *Wan Animate 2* builds the background from the scene text. *SCAIL-2* swaps the character into your video and keeps its background. *Seedance 2.5* is ByteDance's paid model with sound, billed in Comfy credits, no GPU needed.
+3. **Look**: character and scene presets fill the looks and background text and the advanced sliders. Edit the text if you want. **Describe** writes the background text from what is actually in your reference image (or your driving video when SCAIL-2 is selected).
+4. **Quality**: tier (Fast to try, Standard for most clips, High for the final one), clip length (only lengths your video can cover are offered), number of seeds (variations to pick from), and Finish (2× upscale, double frame rate, sound).
+5. The line above the button shows minutes; the price is on the button. Press **Render**. The clip appears in the feed immediately and shows its progress on the card. You can close the page.
 
-Press **Render clip**. The job goes into a queue; you can close the page.
+## 3. Library: pick a seed, download
 
-## 3. Jobs: pick a seed, download
+![Library](images/app-library.png)
 
-![Jobs](images/app-jobs.jpg)
+Every clip is a card. Rendering clips show a stage and a progress bar; finished ones show a frame and play on hover. Filter by Rendering, Done or Failed, or search by character, scene or note. Click a card:
 
-The table refreshes by itself and the newest job opens on its own. Click any row:
+![Clip details](images/app-clip.jpg)
 
-- **Contact sheets**: six frames and a face strip per seed. Pick the seed with the cleanest face and hands before watching anything.
-- **Preview**: the compare video, result on the left, your driving video on the right.
-- **Downloads**: `*_result_*.mp4` is the clip, `*_compare_*.mp4` is the side-by-side, `*_final_*.mp4` is the Finished version when you ticked Finish.
+- **Compare** player: result on the left, your driving video on the right. Switch to the result or the Finished file with the buttons under the player.
+- **Pick a seed**: six frames and a face strip per seed. Choose the seed with the cleanest face and hands before watching anything.
+- **Downloads**: `*_result_*.mp4` is the clip, `*_compare_*.mp4` the side-by-side, `*_final_*.mp4` the Finished version.
+- **Use these settings** loads the clip's inputs and settings back into Create so you can change one thing and render again.
 
-Score with the five-line scorecard (face, hands and feet, edges and background, stability, camera and timing, 1–5 each). Below 20 of 25: try another seed, a sharper reference, or a slower move.
+Score with the five-line scorecard (face, hands and feet, edges and background, stability, camera and timing, 1 to 5 each). Below 20 of 25: try another seed, a sharper reference, or a slower move.
 
-## 4. Many clips at once: Job sheet
+## 4. Many clips at once: Batch
 
 Upload your images and videos into the pod's `input` folder via Jupyter (port 8888 on the pod), then a CSV with the columns `image,video,character,scene,seeds,passes,note` and optionally `engine` (`wan`, `scail`, `seedance`). Every row becomes a job.
 
@@ -63,7 +53,7 @@ Upload your images and videos into the pod's `input` folder via Jupyter (port 88
 
 ![Costs](images/app-costs.png)
 
-The **Costs** tab shows per month what the clips took in GPU time and what the pod most likely billed, plus Seedance credits. Standard clip about $0.15, High + Finish about $1 at $1.79 per hour.
+The **Costs** page shows per month what the clips took in GPU time and what the pod most likely billed, plus Seedance credits. Standard clip about $0.15, High + Finish about $1 at $1.79 per hour.
 
 ## 6. Rules
 

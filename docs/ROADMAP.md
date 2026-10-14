@@ -116,6 +116,8 @@ Effort: 2–3 days.
 
 **Done, 14 Oct 2026** (no GPU needed). 4.1 [TEAM_GUIDE.md](TEAM_GUIDE.md) with screenshots of the login, New clip, Jobs and Costs tabs; the Jobs tab now opens on the newest job. 4.2 [UPDATING.md](UPDATING.md): what is pinned where, the update procedure (fresh pod, smoke test, validate every workflow, re-render the reference pair, tests), rollback. 4.3 **Costs** tab in the app and `tools/cost_report.py`: per month, render minutes and dollars, estimated pod bill (day spans + idle allowance), Seedance credits. 4.4 `tools/pod.py status|start|stop|terminate` (RunPod GraphQL; written from the docs, not yet run against a live account; `--dry-run` prints the call) and the serverless note below. Still open from Phase 3: the GPU session for SCAIL-2, the Seedance credits and the three-way comparison.
 
+**Front end rebuilt, 14 Oct 2026.** After a review of Krea, Kling, Runway, Luma, Viggle and others, the Gradio page was replaced by a hand-written front end (app/web: FastAPI JSON API + one HTML, CSS and JS file each): left rail, settings panel, results feed with in-card progress, detail drawer with compare player, contact sheets, downloads and settings reuse; graphite neutrals with one cobalt accent. API covered by tests/test_web.py. Same start script, same port, same job engine.
+
 Serverless (pay per clip, $0 idle): the same workflows run on RunPod Serverless with the ComfyUI worker image and the network volume mounted; the app would then call the `/run` endpoint instead of a pod's ComfyUI. Worth it only when the team renders a few clips a day on random days; at batch usage the pod is cheaper and simpler. Not built.
 
 ---

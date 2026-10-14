@@ -351,6 +351,14 @@ def make_sheets(job):
             sheet.save(sheet_path, quality=88)
             faces.save(faces_path, quality=90)
             run["sheets"] = [str(sheet_path), str(faces_path)]
+            # Poster: the result half of a middle frame, the card thumbnail in the web app.
+            mid = frames[len(frames) // 2]
+            poster = mid.crop((0, 0, w // 2, h))
+            if poster.width > 540:
+                poster = poster.resize((540, round(h * 540 / (w // 2))))
+            poster_path = d / f"s{run['seed']}_poster.jpg"
+            poster.save(poster_path, quality=86)
+            run["poster"] = str(poster_path)
         except Exception as e:  # sheets are a convenience; never fail the job over them
             run["sheets"] = []
             run["sheet_error"] = str(e)

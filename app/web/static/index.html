@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creator Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/static/app.css?v=3">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%234c8dff'/%3E%3Cpath d='M9 7l8 5-8 5z' fill='white'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><i></i>Creator Pipeline</div>
+  <div class="top-right">
+    <span class="chip" id="status-chip">Connecting</span>
+    <span class="chip plain" id="user-chip" hidden>team</span>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="rail" aria-label="Sections">
+    <a href="#create" data-view="create" class="on" title="Create"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Create</span></a>
+    <a href="#library" data-view="library" title="Library"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg><span>Library</span></a>
+    <a href="#batch" data-view="batch" title="Batch"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Batch</span></a>
+    <a href="#costs" data-view="costs" title="Costs"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 5-7"/></svg><span>Costs</span></a>
+    <span class="sp"></span>
+    <a href="#help" data-view="help" title="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7M12 17h.01"/></svg><span>Help</span></a>
+  </nav>
+
+  <!-- CREATE -->
+  <main class="view" id="view-create">
+    <aside class="panel">
+      <section class="sec">
+        <div class="lbl">Inputs <small>full body, one person</small></div>
+        <div class="drops">
+          <label class="drop" id="drop-image" for="file-image">
+            <input type="file" id="file-image" accept="image/png,image/jpeg,image/webp" hidden>
+            <img id="img-preview" alt="" hidden>
+            <span class="drop-text"><b>Reference image</b>who the character is<br>PNG or JPG, 1024 px or more</span>
+            <b class="drop-name" id="name-image" hidden></b>
+          </label>
+          <label class="drop" id="drop-video" for="file-video">
+            <input type="file" id="file-video" accept="video/mp4,video/quicktime,video/webm" hidden>
+            <video id="vid-preview" muted playsinline hidden></video>
+            <span class="drop-text"><b>Driving video</b>the move to copy<br>MP4, 3.5 s or longer</span>
+            <b class="drop-name" id="name-video" hidden></b>
+          </label>
+        </div>
+        <div class="check" id="check">Add an image and a video. The check runs by itself.</div>
+      </section>
+
+      <section class="sec">
+        <div class="lbl">Engine</div>
+        <div class="seg" id="seg-engine"></div>
+        <div class="hint" id="engine-hint"></div>
+      </section>
+
+      <section class="sec">
+        <div class="lbl">Look</div>
+        <div class="row2">
+          <select class="field" id="sel-character" aria-label="Character"></select>
+          <select class="field" id="sel-scene" aria-label="Scene"></select>
+        </div>
+        <textarea class="field ta" id="appearance" rows="3" placeholder="Looks only, no motion words"></textarea>
+        <div class="with-btn">
+          <textarea class="field ta" id="background" rows="3" placeholder="Background"></textarea>
+          <button class="ghost" id="btn-describe" title="Fill the background text from the reference image or the driving video">Describe</button>
+        </div>
+        <div class="hint" id="describe-hint" hidden></div>
+        <input class="field" id="motion" placeholder="What the person is doing">
+      </section>
+
+      <section class="sec">
+        <div class="lbl">Quality</div>
+        <div class="seg" id="seg-tier"></div>
+        <div class="row2">
+          <div class="seg" id="seg-length"><button disabled>Length after check</button></div>
+          <div class="seg" id="seg-seeds"></div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="finishing"><span class="sw"></span>Finish: 2× upscale, double frame rate, sound</label>
+        <details class="adv">
+          <summary>Advanced</summary>
+          <div class="row2">
+            <label class="num">Identity hold <input type="number" id="identity_hold" min="0.8" max="1.5" step="0.05" value="1"></label>
+            <label class="num">Motion looseness <input type="number" id="motion_looseness" min="0.5" max="1" step="0.05" value="1"></label>
+          </div>
+        </details>
+      </section>
+
+      <section class="sec grow">
+        <input class="field" id="note" placeholder="Note (optional)">
+        <div class="est" id="est"><span>Pick inputs to estimate</span><b></b></div>
+        <div class="hint" id="est-note"></div>
+        <button class="cta" id="btn-render" disabled>Render</button>
+        <div class="hint bad" id="run-error" hidden></div>
+      </section>
+    </aside>
+
+    <section class="feed">
+      <div class="feedhead"><h4>Recent</h4><a href="#library" class="link">All clips</a></div>
+      <div class="grid" id="grid-recent"></div>
+      <div class="empty" id="empty-recent" hidden>No clips yet. Your first render will appear here.</div>
+    </section>
+  </main>
+
+  <!-- LIBRARY -->
+  <main class="view wide" id="view-library" hidden>
+    <section class="feed">
+      <div class="feedhead">
+        <h4>Library</h4>
+        <div class="filters" id="filters">
+          <button class="on" data-f="all">All</button><button data-f="running">Rendering</button><button data-f="done">Done</button><button data-f="failed">Failed</button>
+        </div>
+        <input class="field search" id="search" placeholder="Search character, scene, note">
+      </div>
+      <div class="grid" id="grid-all"></div>
+      <div class="empty" id="empty-all" hidden>Nothing matches.</div>
+    </section>
+  </main>
+
+  <!-- BATCH -->
+  <main class="view wide" id="view-batch" hidden>
+    <section class="doc">
+      <h2>Batch</h2>
+      <p>One CSV row becomes one job. Columns: <code>image,video,character,scene,seeds,passes,note</code> and optionally <code>engine</code> (wan, scail, seedance). <code>image</code> and <code>video</code> are file names already in the pod's <code>ComfyUI/input</code> folder (upload them through Jupyter on port 8888). Character and scene are preset names. <code>passes</code> is 1 to 3 and is capped by the video length.</p>
+      <form id="batch-form" class="stack">
+        <label class="drop file" for="batch-file"><input type="file" id="batch-file" accept=".csv" hidden><span class="drop-text"><b>CSV file</b>click to choose</span><b class="drop-name" id="batch-name" hidden></b></label>
+        <div class="row3">
+          <label>Engine for rows without one<select class="field" id="batch-engine"></select></label>
+          <label>Quality tier for all rows<select class="field" id="batch-tier"></select></label>
+          <label class="toggle"><input type="checkbox" id="batch-finishing"><span class="sw"></span>Finish for all rows</label>
+        </div>
+        <button class="cta slim" type="submit">Queue all rows</button>
+        <div class="hint" id="batch-result"></div>
+      </form>
+    </section>
+  </main>
+
+  <!-- COSTS -->
+  <main class="view wide" id="view-costs" hidden>
+    <section class="doc">
+      <h2>Costs</h2>
+      <p id="costs-intro"></p>
+      <div class="tablewrap"><table id="costs-table"><thead></thead><tbody></tbody></table></div>
+      <p class="hint">Check the real numbers on RunPod under Billing and on comfy.org under Credits. The pod estimate is a floor, not an invoice.</p>
+    </section>
+  </main>
+
+  <!-- HELP -->
+  <main class="view wide" id="view-help" hidden>
+    <section class="doc">
+      <h2>How to get a good clip</h2>
+      <h3>Reference image</h3><p>Full body head to toe, facing the camera, face clearly visible, sharp, 1024 to 2048 px on the long side, plain background. The face comes from this image.</p>
+      <h3>Driving video</h3><p>One person, full body, stable camera, even light, no motion blur. Each pass uses 81 frames (about 3.4 s at 24 fps); a longer video allows 2 or 3 passes for a longer clip. The motion comes from this video.</p>
+      <h3>Engines</h3>
+      <p><b>Wan Animate 2</b> generates a new background from the scene text. <b>SCAIL-2</b> swaps the character into the original video and keeps its background, lighting and camera; describe the whole scene in the text (Describe from the driving video does this) and expect the frame to follow the video's orientation. <b>Seedance 2.5</b> is ByteDance's paid model run through ComfyUI: no GPU, the whole clip (4 to 30 s) with sound at 480p, 720p or 1080p by tier, billed in Comfy credits.</p>
+      <h3>Seeds and tiers</h3><p>Two to four seeds give you choices; each clip shows a contact sheet and a face strip so you can pick in seconds. Fast is a preview. Standard is what we scored 23 of 25. High uses the full model at 720p and takes longer.</p>
+      <h3>Finish</h3><p>A second pass that upscales 2× (about 1080p), doubles the frame rate, adds a light camera grain and keeps the driving video's sound. A few minutes per seed.</p>
+      <h3>Rules</h3><p>Only characters we invented or people who signed consent. Label AI content. Vary content types. Never share this link outside the team.</p>
+    </section>
+  </main>
+</div>
+
+<!-- DETAIL DRAWER -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="Clip details">
+  <div class="drawer-head">
+    <div><b id="d-title"></b><div class="hint" id="d-sub"></div></div>
+    <button class="icon" id="d-close" aria-label="Close">×</button>
+  </div>
+  <div class="drawer-body">
+    <div class="player"><video id="d-video" controls playsinline preload="metadata"></video></div>
+    <div class="seg small" id="d-videos"></div>
+    <div class="d-section" id="d-progress" hidden><div class="stage-line"><span id="d-stage"></span><span id="d-pct"></span></div><div class="bar"><i id="d-bar"></i></div></div>
+    <div class="d-section"><div class="lbl">Pick a seed</div><div class="sheets" id="d-sheets"></div></div>
+    <div class="d-section"><div class="lbl">Downloads</div><div class="files" id="d-files"></div></div>
+    <div class="d-section"><div class="lbl">Settings</div><dl class="kv" id="d-kv"></dl></div>
+    <div class="d-actions"><button class="cta slim" id="d-reuse">Use these settings</button></div>
+  </div>
+</aside>
+
+<div class="toast" id="toast"></div>
+<script src="/static/app.js?v=3"></script>
+</body>
+</html>
