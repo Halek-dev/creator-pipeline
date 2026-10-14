@@ -28,7 +28,7 @@ HELP = """
 
 **Driving video**: one person, full body, stable camera, even light, no motion blur. Each pass uses 81 frames (about 3.4 s at 24 fps); a longer video allows 2 or 3 passes for a longer clip. The motion comes from this video.
 
-**Engine**: *Wan Animate 2* generates a new background from the scene text. *SCAIL-2* swaps the character into the original driving video and keeps its background, lighting and camera; describe the whole scene in the text (the Describe button with "driving video" does this), and expect the frame to follow the video's orientation (512×896 or 896×512).
+**Engine**: *Wan Animate 2* generates a new background from the scene text. *SCAIL-2* swaps the character into the original driving video and keeps its background, lighting and camera; describe the whole scene in the text (the Describe button with "driving video" does this), and expect the frame to follow the video's orientation (512×896 or 896×512). *Seedance 2.5* is ByteDance's paid model run through ComfyUI: no GPU needed, renders the whole clip (4–30 s) with sound at 480p/720p/1080p by tier, billed in Comfy credits (needs COMFY_API_KEY on the machine running the app).
 
 **Preset**: with Wan Animate 2 the background is generated from the scene text; it does not come from either input. Edit the scene text per job if you want something specific, or press **Describe** to fill it from the reference image's or the driving video's surroundings (needs an Anthropic API key on the pod).
 
@@ -95,9 +95,13 @@ def on_scene(name):
     return s.get("background", ""), s.get("motion", ""), float(s.get("identity_hold", 1.0)), float(s.get("motion_looseness", 1.0))
 
 
-def estimate_text(tier_name, seeds, chunks, finishing):
+def estimate_text(tier_name, seeds, chunks, finishing, engine="wan", seconds=5.0):
     p = presets()
     tier = p["tiers"][tier_name]
+    if engine == "seedance":
+        minutes, usd = J.seedance_estimate(p, tier_name, seconds, int(seeds))
+        return (f"Seedance 2.5 at {J.SEEDANCE_RESOLUTION.get(tier_name, '720p')}, {J.SD.clamp_duration(seconds)} s, with sound · about {minutes:.0f} min and "
+                f"~${usd:.2f} in Comfy credits for {int(seeds)} seed(s). Finish is not applied (Seedance delivers its own resolution and audio).")
     minutes = J.estimate_minutes(tier, p["finishing"], int(chunks or 1), bool(finishing), int(seeds))
     return f"{tier.get('note', '')} · about {minutes:.0f} min and ${minutes / 60 * J.GPU_HOURLY_USD:.2f} for {int(seeds)} seed(s)"
 
@@ -110,7 +114,7 @@ def on_preflight(image, video, engine_label):
     touch_keepalive()
     ok, msgs, info = J.preflight(image, video)
     text = ("**Ready.**\n\n" if ok else "**Fix before running.**\n\n") + "\n\n".join(f"- {m}" for m in msgs)
-    choices = J.length_choices(info.get("frames", 0), engine_key(engine_label)) if ok else []
+    choices = J.length_choices(info.get("frames", 0), engine_key(engine_label), info.get("fps", 24.0)) if ok else []
     radio = gr.update(choices=[c[0] for c in choices], value=choices[0][0] if choices else None, interactive=bool(choices))
     return text, radio, info
 
@@ -123,7 +127,7 @@ def on_run(image, video, engine_label, character, appearance, scene_name, backgr
     if not appearance.strip():
         return "Not queued: describe the character's looks (or pick a character preset)."
     engine = engine_key(engine_label)
-    chunks = dict(J.length_choices(info.get("frames", 0), engine)).get(length_label, 1)
+    chunks = dict(J.length_choices(info.get("frames", 0), engine, info.get("fps", 24.0))).get(length_label, 1)
     tier = presets()["tiers"][tier_name]
     scene = {"background": background, "motion": motion, "identity_hold": identity_hold, "motion_looseness": motion_looseness}
     job = J.new_job(image, video, character, appearance, scene_name, scene, tier_name, tier, int(seeds), note,
@@ -265,12 +269,15 @@ def build():
                 scene.change(on_scene, scene, [background, motion, identity_hold, motion_looseness])
                 describe_btn.click(on_describe, [describe_source, image, video, background], [background, describe_md])
 
-                def est(tier_name, seeds, length_label, finishing, info):
-                    chunks = dict(J.length_choices(info.get("frames", 0) if info else 0)).get(length_label, 1)
-                    return estimate_text(tier_name, seeds, chunks, finishing)
+                def est(tier_name, seeds, length_label, finishing, info, engine_label):
+                    info = info or {}
+                    eng = engine_key(engine_label)
+                    chunks = dict(J.length_choices(info.get("frames", 0), eng, info.get("fps", 24.0))).get(length_label, 1)
+                    seconds = (info.get("frames") or 120) / float(info.get("fps") or 24)
+                    return estimate_text(tier_name, seeds, chunks, finishing, eng, seconds)
 
-                for comp in (tier, seeds, length, finishing):
-                    comp.change(est, [tier, seeds, length, finishing, info_state], tier_md)
+                for comp in (tier, seeds, length, finishing, engine):
+                    comp.change(est, [tier, seeds, length, finishing, info_state, engine], tier_md)
                 run.click(on_run, [image, video, engine, character, appearance, scene, background, motion, identity_hold, motion_looseness,
                                    tier, seeds, length, finishing, note, info_state], result_md)
 

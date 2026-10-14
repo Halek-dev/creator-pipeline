@@ -79,8 +79,13 @@ def set_input(workflow, key, value):
     workflow[node_id]["inputs"][input_name] = value
 
 
-def queue_prompt(server, workflow, client_id):
-    return request(server, "/prompt", {"prompt": workflow, "client_id": client_id})["prompt_id"]
+def queue_prompt(server, workflow, client_id, extra_data=None):
+    """Queue a workflow. extra_data carries per-request values such as the Comfy API key for paid API nodes
+    ({"api_key_comfy_org": "..."}), which ComfyUI never stores in the history."""
+    payload = {"prompt": workflow, "client_id": client_id}
+    if extra_data:
+        payload["extra_data"] = extra_data
+    return request(server, "/prompt", payload)["prompt_id"]
 
 
 def poll(server, prompt_id):

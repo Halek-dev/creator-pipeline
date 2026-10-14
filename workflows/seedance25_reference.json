@@ -1,0 +1,166 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Reference Image"
+    },
+    "inputs": {
+      "image": "reference_streetwear_character.png"
+    }
+  },
+  "2": {
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "Driving Video"
+    },
+    "inputs": {
+      "file": "street_dancer.mp4"
+    }
+  },
+  "3": {
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "Driving Frames"
+    },
+    "inputs": {
+      "video": [
+        "2",
+        0
+      ]
+    }
+  },
+  "4": {
+    "class_type": "ByteDance2ReferenceNodeV2",
+    "_meta": {
+      "title": "Seedance"
+    },
+    "inputs": {
+      "model": "Seedance 2.5",
+      "model.prompt": "A young woman with dark hair in a high bun, black crop top and wide cargo pants, dancing energetically in a bright photo studio.",
+      "model.resolution": "720p",
+      "model.ratio": "9:16",
+      "model.duration": 5,
+      "model.generate_audio": true,
+      "model.task_type": "reference",
+      "model.output_format": "mp4",
+      "model.reference_images.image_1": [
+        "1",
+        0
+      ],
+      "model.reference_videos.video_1": [
+        "2",
+        0
+      ],
+      "model.auto_downscale": true,
+      "model.auto_upscale": false,
+      "seed": 0,
+      "watermark": false
+    }
+  },
+  "5": {
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save"
+    },
+    "inputs": {
+      "video": [
+        "4",
+        0
+      ],
+      "filename_prefix": "motion_swap/seedance_result",
+      "format": "mp4",
+      "format.codec": "h264"
+    }
+  },
+  "6": {
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "Result Frames"
+    },
+    "inputs": {
+      "video": [
+        "4",
+        0
+      ]
+    }
+  },
+  "7": {
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "Result Trimmed"
+    },
+    "inputs": {
+      "image": [
+        "6",
+        0
+      ],
+      "batch_index": 0,
+      "length": 81
+    }
+  },
+  "8": {
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "Driving Trimmed"
+    },
+    "inputs": {
+      "image": [
+        "3",
+        0
+      ],
+      "batch_index": 0,
+      "length": 81
+    }
+  },
+  "9": {
+    "class_type": "ImageStitch",
+    "_meta": {
+      "title": "Compare"
+    },
+    "inputs": {
+      "image1": [
+        "7",
+        0
+      ],
+      "image2": [
+        "8",
+        0
+      ],
+      "direction": "right",
+      "match_image_size": true,
+      "spacing_width": 0,
+      "spacing_color": "white"
+    }
+  },
+  "10": {
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Compare Video"
+    },
+    "inputs": {
+      "images": [
+        "9",
+        0
+      ],
+      "fps": [
+        "3",
+        2
+      ]
+    }
+  },
+  "11": {
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Compare"
+    },
+    "inputs": {
+      "video": [
+        "10",
+        0
+      ],
+      "filename_prefix": "motion_swap/seedance_compare",
+      "format": "mp4",
+      "format.codec": "h264"
+    }
+  }
+}

@@ -23,13 +23,16 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import build_scail as S  # noqa: E402
+import build_seedance as SD  # noqa: E402
 import build_workflows as B  # noqa: E402
 from comfy_client import ComfyError, collect_outputs, error_message, poll, queue_contains, queue_prompt, set_input  # noqa: E402
 
 ENGINES = {
-    "Wan Animate 2": "wan",                       # background and camera from the scene text
-    "SCAIL-2 (keep the video's background)": "scail",  # character swapped into the original driving video
+    "Wan Animate 2": "wan",                            # background and camera from the scene text (open model)
+    "SCAIL-2 (keep the video's background)": "scail",  # character swapped into the original driving video (open model)
+    "Seedance 2.5 (paid, no GPU)": "seedance",         # ByteDance API through ComfyUI; needs COMFY_API_KEY
 }
+COMFY_API_KEY = os.environ.get("COMFY_API_KEY", "")
 
 COMFY_INPUT = ROOT / "ComfyUI" / "input"
 COMFY_OUTPUT = ROOT / "ComfyUI" / "output"
@@ -105,9 +108,13 @@ def preflight(image_path, video_path):
     return ok, messages, info
 
 
-def length_choices(frames, engine="wan"):
+def length_choices(frames, engine="wan", fps=24.0):
     """Radio choices for clip length given the driving video's frame count: [(label, passes), ...].
-    Wan Animate 2 passes are 81 frames with 1 shared; SCAIL-2 segments are 81 frames with 5 shared."""
+    Wan Animate 2 passes are 81 frames with 1 shared; SCAIL-2 segments are 81 frames with 5 shared;
+    Seedance renders the whole clip (4-30 s) in one call."""
+    if engine == "seedance":
+        seconds = SD.clamp_duration(frames / float(fps or 24))
+        return [(f"{seconds} s (whole clip)", 1)]
     out = []
     for n in range(1, MAX_CHUNKS + 1):
         need = S.frames_for_segments(n) if engine == "scail" else B.frames_for_chunks(n)
@@ -149,9 +156,31 @@ def build_scail_workflow(job, seed):
     return wf
 
 
+SEEDANCE_RESOLUTION = {"Fast": "480p", "Standard": "720p", "High": "1080p"}
+
+
+def build_seedance_workflow(job, seed):
+    """Seedance renders the whole driving clip's length (4-30 s) in one call; tier picks the resolution."""
+    opts = job["options"]
+    portrait = (opts.get("video_h") or 1) >= (opts.get("video_w") or 0)
+    fps = float(opts.get("fps") or 24)
+    seconds = (opts.get("frames") or 5 * fps) / fps
+    prompt = f"{job['prompts']['character']} The person is {job['prompts']['motion'].rstrip('.')}."
+    wf = SD.build(prompt=prompt, resolution=SEEDANCE_RESOLUTION.get(job["tier"], "720p"), ratio="9:16" if portrait else "16:9",
+                  duration=seconds, audio=True, seed=seed)
+    set_input(wf, "Reference Image.image", job["inputs"]["image"])
+    set_input(wf, "Driving Video.file", job["inputs"]["video"])
+    prefix = f"motion_swap/{job['id']}/s{seed}"
+    set_input(wf, "Save.filename_prefix", f"{prefix}_result")
+    set_input(wf, "Save Compare.filename_prefix", f"{prefix}_compare")
+    return wf
+
+
 def build_workflow(base, job, seed):
     if job.get("engine") == "scail":
         return build_scail_workflow(job, seed)
+    if job.get("engine") == "seedance":
+        return build_seedance_workflow(job, seed)
     tier, opts = job["tier_settings"], job["options"]
     wf = B.build(model=tier.get("model", "distilled"), chunks=opts["chunks"], finishing=opts["finishing"], base=base)
     set_input(wf, "Reference Image.image", job["inputs"]["image"])
@@ -198,6 +227,15 @@ def estimate_minutes(tier, finishing_cfg, chunks, finishing, seeds):
     return per_clip * seeds
 
 
+def seedance_estimate(presets, tier_name, seconds, seeds):
+    """(minutes, usd) for Seedance: API credits per second of video, by resolution (approximate; the exact price
+    is shown on ComfyUI's node badge and on your Comfy account)."""
+    cfg = presets.get("seedance", {})
+    rate = cfg.get("usd_per_second", {}).get(SEEDANCE_RESOLUTION.get(tier_name, "720p"), 0.35)
+    duration = SD.clamp_duration(seconds)
+    return cfg.get("minutes_per_clip", 3) * seeds, round(duration * rate * seeds, 2)
+
+
 def new_job(image_path, video_path, character_name, appearance, scene_name, scene, tier_name, tier, seeds,
             note="", chunks=1, finishing=False, info=None, engine="wan"):
     presets = load_presets()
@@ -206,7 +244,13 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
     rng = random.Random()
     seed_list = [rng.randint(0, 2**31 - 1) for _ in range(int(seeds))]
     character_prompt, motion_prompt = build_prompts(appearance, scene)
-    minutes = estimate_minutes(tier, presets["finishing"], chunks, finishing, len(seed_list))
+    if engine == "seedance":
+        finishing = False  # Seedance already delivers its own resolution and sound
+        seconds = (info.get("frames") or 120) / float(info.get("fps") or 24)
+        minutes, usd = seedance_estimate(presets, tier_name, seconds, len(seed_list))
+    else:
+        minutes = estimate_minutes(tier, presets["finishing"], chunks, finishing, len(seed_list))
+        usd = round(minutes / 60 * GPU_HOURLY_USD, 2)
     job = {
         "id": job_id,
         "created": datetime.now().isoformat(timespec="seconds"),
@@ -223,7 +267,7 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
         "prompts": {"character": character_prompt, "motion": motion_prompt, "negative": presets["negative_prompt"]},
         "runs": [{"seed": s, "status": "queued", "outputs": [], "error": None, "seconds": None, "sheets": []} for s in seed_list],
         "workflow_version": workflow_version(),
-        "cost": {"estimate_usd": round(minutes / 60 * GPU_HOURLY_USD, 2), "estimate_minutes": round(minutes, 1), "actual_usd": None},
+        "cost": {"estimate_usd": usd, "estimate_minutes": round(minutes, 1), "actual_usd": None},
         "note": note,
     }
     save_job(job)
@@ -386,9 +430,16 @@ class Runner(threading.Thread):
             t0 = time.time()
             entry, prompt_id = self.adopt(run)
             if entry is None and prompt_id is None:
+                extra = None
+                if job.get("engine") == "seedance":
+                    if not COMFY_API_KEY:
+                        run["status"], run["error"] = "error", "Seedance needs a Comfy API key: set COMFY_API_KEY before starting the app."
+                        save_job(job)
+                        continue
+                    extra = {"api_key_comfy_org": COMFY_API_KEY}
                 wf = build_workflow(base, job, run["seed"])
                 try:
-                    prompt_id = queue_prompt(self.server, wf, client_id)
+                    prompt_id = queue_prompt(self.server, wf, client_id, extra)
                 except ComfyError as e:
                     run["status"], run["error"] = "error", str(e)
                     save_job(job)
@@ -410,6 +461,9 @@ class Runner(threading.Thread):
         make_sheets(job)
         job["finished"] = datetime.now().isoformat(timespec="seconds")
         seconds = time.time() - t_job
-        job["cost"]["actual_usd"] = round(seconds / 3600 * GPU_HOURLY_USD, 2)
+        if job.get("engine") == "seedance":
+            job["cost"]["actual_usd"] = job["cost"]["estimate_usd"]  # billed by Comfy credits, not GPU time
+        else:
+            job["cost"]["actual_usd"] = round(seconds / 3600 * GPU_HOURLY_USD, 2)
         job["status"] = "done" if all(r["status"] == "done" for r in job["runs"]) else ("error" if all(r["status"] == "error" for r in job["runs"]) else "partial")
         save_job(job)

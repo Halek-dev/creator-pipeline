@@ -70,6 +70,15 @@ tiers:
     minutes_per_clip: 9
     note: full model + distill LoRA at 720p (23-24/25); about 9 min per pass on an A100; needs the wan-animate-2-full models and a 32 GB+ GPU
 
+# Seedance 2.5 (paid API through ComfyUI, no GPU): approximate credit cost per second of video by resolution.
+# The exact price shows on ComfyUI's node badge and on the Comfy account; adjust these as you observe real charges.
+seedance:
+  usd_per_second:
+    480p: 0.15
+    720p: 0.35
+    1080p: 0.75
+  minutes_per_clip: 3
+
 # "Finish" option: SeedVR2 upscale x2 -> FILM 2x frames -> Reality Finish. Needs the "finishing" model profile.
 # Measured on an A100: about 6 min per pass at Standard resolution, 8 at High. Estimated per pass.
 finishing:

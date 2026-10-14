@@ -129,6 +129,31 @@ class ScailEngineTests(unittest.TestCase):
         self.assertEqual([c[1] for c in J.length_choices(160, "wan")], [1])        # 161 needed for 2 passes
 
 
+class SeedanceEngineTests(unittest.TestCase):
+    def test_seedance_workflow_from_job(self):
+        job = sample_job(options={"chunks": 1, "finishing": False, "frames": 121, "fps": 24.0, "video_w": 720, "video_h": 1280})
+        job["engine"], job["tier"] = "seedance", "High"
+        wf = J.build_workflow(None, job, 3)
+        by_title = {n["_meta"]["title"]: n["inputs"] for n in wf.values()}
+        s = by_title["Seedance"]
+        self.assertEqual(s["model"], "Seedance 2.5")
+        self.assertEqual(s["model.resolution"], "1080p")
+        self.assertEqual(s["model.ratio"], "9:16")
+        self.assertEqual(s["model.duration"], 5)          # 121 frames / 24 fps, rounded, clamped to 4-30
+        self.assertEqual(s["model.task_type"], "reference")
+        self.assertEqual(s["seed"], 3)
+        self.assertTrue(s["model.prompt"].startswith("C The person is M"))
+        self.assertEqual(by_title["Reference Image"]["image"], "app_j1_ref.png")
+        self.assertEqual(by_title["Save"]["filename_prefix"], "motion_swap/j1/s3_result")
+        self.assertEqual([c[0] for c in J.length_choices(121, "seedance", 24.0)], ["5 s (whole clip)"])
+
+    def test_seedance_estimate_uses_credits_not_gpu_time(self):
+        p = J.load_presets()
+        minutes, usd = J.seedance_estimate(p, "Standard", 5.0, 2)
+        self.assertAlmostEqual(usd, 5 * p["seedance"]["usd_per_second"]["720p"] * 2)
+        self.assertEqual(minutes, p["seedance"]["minutes_per_clip"] * 2)
+
+
 class PreflightTests(unittest.TestCase):
     def test_blocks_on_short_video_and_passes_on_good_inputs(self):
         with tempfile.TemporaryDirectory() as d:
