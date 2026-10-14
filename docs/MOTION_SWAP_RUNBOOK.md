@@ -42,7 +42,7 @@ git clone https://github.com/Halek-dev/creator-pipeline.git && cd creator-pipeli
 - starts the **idle watchdog**: the pod stops itself after 20 minutes with no jobs (`IDLE_MINUTES=45 bash scripts/start.sh` to change, `IDLE_MINUTES=0` to disable),
 - runs the **smoke test** and prints `RESULT: READY` when nodes, models and a tiny render all pass.
 
-Useful: `bash scripts/start.sh stop` stops everything; `tail -f logs/comfy.log` watches the server; `cat logs/public_url` shows the link again.
+Useful: `bash scripts/start.sh stop` stops everything; `tail -f logs/comfy.log` watches the server; `cat logs/public_url` shows the link again. Set the pod's price so the app's cost column is accurate: `GPU_HOURLY_USD=1.79 bash scripts/start.sh` (default 1.00).
 
 ## 5. First run (sample assets)
 

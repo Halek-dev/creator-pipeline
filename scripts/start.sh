@@ -5,6 +5,7 @@
 #   IDLE_MINUTES=45 bash scripts/start.sh       # longer idle allowance
 #   IDLE_MINUTES=0 bash scripts/start.sh        # no watchdog
 #   NO_TUNNEL=1 bash scripts/start.sh           # local only
+#   GPU_HOURLY_USD=1.79 bash scripts/start.sh   # this pod's price per hour, so the app's cost column is right
 #   bash scripts/start.sh stop                  # stop everything this script started
 #
 # Everything runs in the background and survives closing the terminal. Logs are in logs/.
@@ -48,7 +49,7 @@ APP_PORT="${APP_PORT:-7860}"
 if [ -f "$LOGS/app.pid" ] && kill -0 "$(cat "$LOGS/app.pid")" 2>/dev/null; then
     :
 else
-    COMFY_SERVER="http://127.0.0.1:$PORT" APP_PORT="$APP_PORT" nohup "$PY" app/app.py > "$LOGS/app.log" 2>&1 &
+    COMFY_SERVER="http://127.0.0.1:$PORT" APP_PORT="$APP_PORT" GPU_HOURLY_USD="${GPU_HOURLY_USD:-1.0}" nohup "$PY" app/app.py > "$LOGS/app.log" 2>&1 &
     echo $! > "$LOGS/app.pid"
 fi
 
