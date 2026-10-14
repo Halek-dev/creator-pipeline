@@ -22,8 +22,14 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
+import build_scail as S  # noqa: E402
 import build_workflows as B  # noqa: E402
 from comfy_client import ComfyError, collect_outputs, error_message, poll, queue_contains, queue_prompt, set_input  # noqa: E402
+
+ENGINES = {
+    "Wan Animate 2": "wan",                       # background and camera from the scene text
+    "SCAIL-2 (keep the video's background)": "scail",  # character swapped into the original driving video
+}
 
 COMFY_INPUT = ROOT / "ComfyUI" / "input"
 COMFY_OUTPUT = ROOT / "ComfyUI" / "output"
@@ -99,11 +105,12 @@ def preflight(image_path, video_path):
     return ok, messages, info
 
 
-def length_choices(frames):
-    """Radio choices for clip length given the driving video's frame count: [(label, chunks), ...]."""
+def length_choices(frames, engine="wan"):
+    """Radio choices for clip length given the driving video's frame count: [(label, passes), ...].
+    Wan Animate 2 passes are 81 frames with 1 shared; SCAIL-2 segments are 81 frames with 5 shared."""
     out = []
     for n in range(1, MAX_CHUNKS + 1):
-        need = B.frames_for_chunks(n)
+        need = S.frames_for_segments(n) if engine == "scail" else B.frames_for_chunks(n)
         if frames >= need:
             out.append((f"{need} frames · {n} pass{'es' if n > 1 else ''}", n))
     return out
@@ -116,7 +123,35 @@ def build_prompts(appearance, scene):
     return character_prompt, scene["motion"].strip()
 
 
+def build_scail_workflow(job, seed):
+    """SCAIL-2 replacement: the driving video's own orientation decides the frame (512×896 or 896×512)."""
+    opts = job["options"]
+    portrait = (opts.get("video_h") or 1) >= (opts.get("video_w") or 0)
+    width, height = (512, 896) if portrait else (896, 512)
+    wf = S.build(segments=opts["chunks"], width=width, height=height, distill=True, replace=True, finishing=opts["finishing"])
+    set_input(wf, "Reference Image.image", job["inputs"]["image"])
+    set_input(wf, "Driving Video.file", job["inputs"]["video"])
+    set_input(wf, "Character Prompt.text", job["prompts"]["character"])
+    for node in wf.values():
+        if node["class_type"] == "WanSCAILToVideo":
+            node["inputs"]["pose_end"] = job["settings"]["motion_looseness"]
+        elif node["class_type"] == "SamplerCustom":
+            node["inputs"]["noise_seed"] = seed
+    total = min(S.frames_for_segments(opts["chunks"]), opts.get("frames") or S.frames_for_segments(opts["chunks"]))
+    set_input(wf, "Trim Tail.length", total)
+    set_input(wf, "Driving Trimmed.length", total)
+    prefix = f"motion_swap/{job['id']}/s{seed}"
+    set_input(wf, "Save.filename_prefix", f"{prefix}_result")
+    set_input(wf, "Save Compare.filename_prefix", f"{prefix}_compare")
+    if opts["finishing"]:
+        set_input(wf, "Final Video.fps", round(float(opts.get("fps") or 24) * 2, 3))
+        set_input(wf, "Save Final.filename_prefix", f"{prefix}_final")
+    return wf
+
+
 def build_workflow(base, job, seed):
+    if job.get("engine") == "scail":
+        return build_scail_workflow(job, seed)
     tier, opts = job["tier_settings"], job["options"]
     wf = B.build(model=tier.get("model", "distilled"), chunks=opts["chunks"], finishing=opts["finishing"], base=base)
     set_input(wf, "Reference Image.image", job["inputs"]["image"])
@@ -164,7 +199,7 @@ def estimate_minutes(tier, finishing_cfg, chunks, finishing, seeds):
 
 
 def new_job(image_path, video_path, character_name, appearance, scene_name, scene, tier_name, tier, seeds,
-            note="", chunks=1, finishing=False, info=None):
+            note="", chunks=1, finishing=False, info=None, engine="wan"):
     presets = load_presets()
     info = info or {}
     job_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:4]
@@ -176,11 +211,13 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
         "id": job_id,
         "created": datetime.now().isoformat(timespec="seconds"),
         "status": "queued",
+        "engine": engine,
         "character": character_name,
         "scene": scene_name,
         "tier": tier_name,
         "tier_settings": {"model": tier.get("model", "distilled"), "width": tier["width"], "height": tier["height"], "steps": tier["steps"]},
-        "options": {"chunks": int(chunks), "finishing": bool(finishing), "frames": info.get("frames"), "fps": info.get("fps")},
+        "options": {"chunks": int(chunks), "finishing": bool(finishing), "frames": info.get("frames"), "fps": info.get("fps"),
+                    "video_w": info.get("video_w"), "video_h": info.get("video_h")},
         "settings": {"identity_hold": float(scene.get("identity_hold", 1.0)), "motion_looseness": float(scene.get("motion_looseness", 1.0))},
         "inputs": {"image": stage_input(image_path, job_id, "ref"), "video": stage_input(video_path, job_id, "drive")},
         "prompts": {"character": character_prompt, "motion": motion_prompt, "negative": presets["negative_prompt"]},

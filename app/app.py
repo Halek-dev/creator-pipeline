@@ -28,7 +28,9 @@ HELP = """
 
 **Driving video**: one person, full body, stable camera, even light, no motion blur. Each pass uses 81 frames (about 3.4 s at 24 fps); a longer video allows 2 or 3 passes for a longer clip. The motion comes from this video.
 
-**Preset**: the background is generated from the scene text; it does not come from either input. Edit the scene text per job if you want something specific, or press **Describe** to fill it from the reference image's or the driving video's surroundings (needs an Anthropic API key on the pod).
+**Engine**: *Wan Animate 2* generates a new background from the scene text. *SCAIL-2* swaps the character into the original driving video and keeps its background, lighting and camera; describe the whole scene in the text (the Describe button with "driving video" does this), and expect the frame to follow the video's orientation (512×896 or 896×512).
+
+**Preset**: with Wan Animate 2 the background is generated from the scene text; it does not come from either input. Edit the scene text per job if you want something specific, or press **Describe** to fill it from the reference image's or the driving video's surroundings (needs an Anthropic API key on the pod).
 
 **Seeds**: 2–4 seeds give you choices; the Jobs tab shows a contact sheet and a face strip per seed so you can pick in seconds.
 
@@ -100,29 +102,34 @@ def estimate_text(tier_name, seeds, chunks, finishing):
     return f"{tier.get('note', '')} · about {minutes:.0f} min and ${minutes / 60 * J.GPU_HOURLY_USD:.2f} for {int(seeds)} seed(s)"
 
 
-def on_preflight(image, video):
+def engine_key(engine_label):
+    return J.ENGINES.get(engine_label, "wan")
+
+
+def on_preflight(image, video, engine_label):
     touch_keepalive()
     ok, msgs, info = J.preflight(image, video)
     text = ("**Ready.**\n\n" if ok else "**Fix before running.**\n\n") + "\n\n".join(f"- {m}" for m in msgs)
-    choices = J.length_choices(info.get("frames", 0)) if ok else []
+    choices = J.length_choices(info.get("frames", 0), engine_key(engine_label)) if ok else []
     radio = gr.update(choices=[c[0] for c in choices], value=choices[0][0] if choices else None, interactive=bool(choices))
     return text, radio, info
 
 
-def on_run(image, video, character, appearance, scene_name, background, motion, identity_hold, motion_looseness,
+def on_run(image, video, engine_label, character, appearance, scene_name, background, motion, identity_hold, motion_looseness,
            tier_name, seeds, length_label, finishing, note, info):
     ok, msgs, info = J.preflight(image, video)
     if not ok:
         return "Not queued: " + " ".join(m for m in msgs if not m.startswith(("Image OK", "Video OK", "Reminder")))
     if not appearance.strip():
         return "Not queued: describe the character's looks (or pick a character preset)."
-    chunks = dict(J.length_choices(info.get("frames", 0))).get(length_label, 1)
+    engine = engine_key(engine_label)
+    chunks = dict(J.length_choices(info.get("frames", 0), engine)).get(length_label, 1)
     tier = presets()["tiers"][tier_name]
     scene = {"background": background, "motion": motion, "identity_hold": identity_hold, "motion_looseness": motion_looseness}
     job = J.new_job(image, video, character, appearance, scene_name, scene, tier_name, tier, int(seeds), note,
-                    chunks=chunks, finishing=bool(finishing), info=info)
+                    chunks=chunks, finishing=bool(finishing), info=info, engine=engine)
     RUNNER.submit(job["id"])
-    return (f"Queued job **{job['id']}**: {int(seeds)} seed(s), {chunks} pass(es){', with Finish' if finishing else ''}. "
+    return (f"Queued job **{job['id']}** on {engine_label}: {int(seeds)} seed(s), {chunks} pass(es){', with Finish' if finishing else ''}. "
             f"Estimated {job['cost']['estimate_minutes']:.0f} min, ${job['cost']['estimate_usd']:.2f}. Watch it on the Jobs tab.")
 
 
@@ -133,7 +140,8 @@ def jobs_table():
         cost = j["cost"]["actual_usd"] if j["cost"]["actual_usd"] is not None else j["cost"]["estimate_usd"]
         opts = j.get("options", {})
         extras = f"{opts.get('chunks', 1)}p" + ("+F" if opts.get("finishing") else "")
-        rows.append([j["id"], j["created"][5:16].replace("T", " "), j["status"], j["character"], j["scene"], f"{j['tier']} {extras}", f"{done}/{len(j['runs'])}", f"${cost:.2f}"])
+        tier = ("SCAIL " if j.get("engine") == "scail" else "") + f"{j['tier']} {extras}"
+        rows.append([j["id"], j["created"][5:16].replace("T", " "), j["status"], j["character"], j["scene"], tier, f"{done}/{len(j['runs'])}", f"${cost:.2f}"])
         ids.append(j["id"])
     return rows, ids
 
@@ -155,7 +163,8 @@ def job_details(ids, evt):
         return "", None, [], []
     job = J.load_job(ids[evt.index[0]])
     opts = job.get("options", {})
-    lines = [f"**{job['id']}** · {job['status']} · {job['character']} · {job['scene']} · {job['tier']} · {opts.get('chunks', 1)} pass(es)" + (" · Finish" if opts.get("finishing") else ""),
+    engine_name = next((k for k, v in J.ENGINES.items() if v == job.get("engine", "wan")), "Wan Animate 2")
+    lines = [f"**{job['id']}** · {job['status']} · {engine_name} · {job['character']} · {job['scene']} · {job['tier']} · {opts.get('chunks', 1)} pass(es)" + (" · Finish" if opts.get("finishing") else ""),
              f"Character prompt: {job['prompts']['character']}",
              f"Motion prompt: {job['prompts']['motion']}",
              f"Identity hold {job['settings']['identity_hold']}, motion looseness {job['settings']['motion_looseness']}, {job['tier_settings']['width']}×{job['tier_settings']['height']}, {job['tier_settings']['steps']} steps, model {job['tier_settings'].get('model', 'distilled')}",
@@ -226,6 +235,7 @@ def build():
                         video = gr.Video(label="Driving video (what motion)", height=300)
                         preflight_md = gr.Markdown("Add an image and a video.")
                     with gr.Column():
+                        engine = gr.Radio(list(J.ENGINES), value=list(J.ENGINES)[0], label="Engine")
                         character = gr.Dropdown(char_names, value=char_names[0], label="Character")
                         appearance = gr.Textbox(p["characters"][char_names[0]]["appearance"], label="Looks (no motion words)", lines=2)
                         scene = gr.Dropdown(scene_names, value=scene_names[0], label="Scene preset")
@@ -248,8 +258,9 @@ def build():
                         note = gr.Textbox(label="Note (optional)", lines=1)
                         run = gr.Button("Run", variant="primary")
                         result_md = gr.Markdown("")
-                image.change(on_preflight, [image, video], [preflight_md, length, info_state])
-                video.change(on_preflight, [image, video], [preflight_md, length, info_state])
+                image.change(on_preflight, [image, video, engine], [preflight_md, length, info_state])
+                video.change(on_preflight, [image, video, engine], [preflight_md, length, info_state])
+                engine.change(on_preflight, [image, video, engine], [preflight_md, length, info_state])
                 character.change(on_character, character, appearance)
                 scene.change(on_scene, scene, [background, motion, identity_hold, motion_looseness])
                 describe_btn.click(on_describe, [describe_source, image, video, background], [background, describe_md])
@@ -260,7 +271,7 @@ def build():
 
                 for comp in (tier, seeds, length, finishing):
                     comp.change(est, [tier, seeds, length, finishing, info_state], tier_md)
-                run.click(on_run, [image, video, character, appearance, scene, background, motion, identity_hold, motion_looseness,
+                run.click(on_run, [image, video, engine, character, appearance, scene, background, motion, identity_hold, motion_looseness,
                                    tier, seeds, length, finishing, note, info_state], result_md)
 
             with gr.Tab("Jobs"):

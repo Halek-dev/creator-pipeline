@@ -100,6 +100,35 @@ class PromptAndWorkflowTests(unittest.TestCase):
         self.assertEqual(by_title["Save Final"]["filename_prefix"], "motion_swap/j1/s7_final")
 
 
+class ScailEngineTests(unittest.TestCase):
+    def test_scail_workflow_from_job(self):
+        job = sample_job(options={"chunks": 2, "finishing": True, "frames": 150, "fps": 25.0, "video_w": 720, "video_h": 1280})
+        job["engine"] = "scail"
+        wf = J.build_workflow(None, job, 9)
+        by_title = {n["_meta"]["title"]: n["inputs"] for n in wf.values()}
+        self.assertEqual(by_title["Reference Image"]["image"], "app_j1_ref.png")
+        self.assertEqual(by_title["Driving Video"]["file"], "app_j1_drive.mp4")
+        self.assertEqual(by_title["Character Prompt"]["text"], "C")
+        self.assertEqual((by_title["Resize Driving"]["resize_type.width"], by_title["Resize Driving"]["resize_type.height"]), (512, 896))
+        for t in ("Animate", "Animate 2"):
+            self.assertEqual(by_title[t]["pose_end"], 0.7, t)
+            self.assertTrue(by_title[t]["replacement_mode"])
+        for t in ("Sampler", "Sampler 2"):
+            self.assertEqual(by_title[t]["noise_seed"], 9, t)
+        self.assertEqual(by_title["Trim Tail"]["length"], 150)  # min(157, 150 driving frames)
+        self.assertEqual(by_title["Final Video"]["fps"], 50.0)
+        self.assertEqual(by_title["Save Final"]["filename_prefix"], "motion_swap/j1/s9_final")
+
+    def test_scail_landscape_and_length_choices(self):
+        job = sample_job(options={"chunks": 1, "finishing": False, "frames": 100, "fps": 24.0, "video_w": 1280, "video_h": 720})
+        job["engine"] = "scail"
+        wf = J.build_workflow(None, job, 1)
+        by_title = {n["_meta"]["title"]: n["inputs"] for n in wf.values()}
+        self.assertEqual((by_title["Resize Driving"]["resize_type.width"], by_title["Resize Driving"]["resize_type.height"]), (896, 512))
+        self.assertEqual([c[1] for c in J.length_choices(160, "scail")], [1, 2])   # 157 needed for 2 segments
+        self.assertEqual([c[1] for c in J.length_choices(160, "wan")], [1])        # 161 needed for 2 passes
+
+
 class PreflightTests(unittest.TestCase):
     def test_blocks_on_short_video_and_passes_on_good_inputs(self):
         with tempfile.TemporaryDirectory() as d:
@@ -148,7 +177,8 @@ class JobStorageTests(unittest.TestCase):
                 job = J.new_job(str(img), str(vid), "X", "a woman", "Studio", scene, "Standard", p["tiers"]["Standard"], 3, "test",
                                 chunks=2, finishing=True, info={"frames": 170, "fps": 24.0})
                 self.assertEqual(len(job["runs"]), 3)
-                self.assertEqual(job["options"], {"chunks": 2, "finishing": True, "frames": 170, "fps": 24.0})
+                self.assertEqual({k: job["options"][k] for k in ("chunks", "finishing", "frames", "fps")}, {"chunks": 2, "finishing": True, "frames": 170, "fps": 24.0})
+                self.assertEqual(job["engine"], "wan")
                 self.assertTrue((J.COMFY_INPUT / job["inputs"]["image"]).exists())
                 self.assertEqual(J.load_job(job["id"])["id"], job["id"])
                 self.assertEqual(J.list_jobs()[0]["id"], job["id"])
