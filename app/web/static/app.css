@@ -85,6 +85,9 @@ textarea.field{resize:vertical;min-height:72px;line-height:1.45}
 .ghost{border:1px solid var(--line);background:var(--raised);color:var(--accent);font-weight:700;font-size:12.5px;border-radius:8px;padding:0 12px;cursor:pointer}
 .ghost:hover{border-color:var(--accent)}
 .ghost:disabled{color:var(--faint);cursor:default;border-color:var(--line)}
+.keyform{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch}
+.keyform .hint{grid-column:1/-1}
+.keyform[hidden]{display:none}
 .toggle{display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;user-select:none}
 .toggle input{position:absolute;opacity:0;width:0;height:0}
 .toggle .sw{width:34px;height:20px;border-radius:10px;background:var(--line);position:relative;flex:none;transition:background .15s}

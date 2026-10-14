@@ -212,6 +212,23 @@ def status():
     return status_info()
 
 
+class KeysIn(BaseModel):
+    comfy_api_key: str | None = None
+    anthropic_api_key: str | None = None
+
+
+@app.post("/api/keys")
+def set_keys(body: KeysIn):
+    """Keys pasted into the app. Kept in this process's memory only (never written to disk); gone when the app restarts.
+    Lets a teammate connect the Comfy or Anthropic account without a terminal."""
+    if body.comfy_api_key is not None:
+        J.COMFY_API_KEY = body.comfy_api_key.strip()
+        os.environ["COMFY_API_KEY"] = J.COMFY_API_KEY
+    if body.anthropic_api_key is not None:
+        os.environ["ANTHROPIC_API_KEY"] = body.anthropic_api_key.strip()
+    return {"seedance_available": bool(J.COMFY_API_KEY), "describe_available": D.credentials_available()}
+
+
 @app.post("/api/uploads")
 async def upload(file: UploadFile = File(...), kind: str = Form("ref")):
     touch_keepalive()

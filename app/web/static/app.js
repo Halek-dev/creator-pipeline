@@ -85,7 +85,21 @@
   function engineHint() {
     const h = { wan: "Background and camera come from the scene text.", scail: "The character is swapped into the original video; background, lighting and camera are kept. Identity hold does not apply.",
                 seedance: "ByteDance's model with sound, billed in Comfy credits. No GPU needed. Finish and the sliders do not apply." }[state.engine];
-    $("#engine-hint").textContent = h + (state.engine === "seedance" && !state.boot.seedance_available ? " COMFY_API_KEY is not set on this machine." : "");
+    const needKey = state.engine === "seedance" && !state.boot.seedance_available;
+    $("#engine-hint").textContent = h + (needKey ? " Connect your Comfy account below to use it." : "");
+    $("#comfy-keyform").hidden = !needKey;
+    $("#anthropic-keyform").hidden = state.boot.describe_available;
+    $("#btn-describe").disabled = !state.boot.describe_available;
+  }
+  async function connectKey(e, field, which) {
+    e.preventDefault();
+    const value = $(field).value.trim(); if (!value) return;
+    try {
+      const r = await post("/api/keys", { [which]: value });
+      state.boot.seedance_available = r.seedance_available; state.boot.describe_available = r.describe_available;
+      $(field).value = ""; engineHint(); renderButton();
+      toast(which === "comfy_api_key" ? (r.seedance_available ? "Comfy account connected." : "Key was empty.") : (r.describe_available ? "Describe is ready." : "Key was empty."));
+    } catch (err) { toast(err.message, true); }
   }
   function setStatus(s) {
     const c = $("#status-chip");
@@ -364,6 +378,8 @@
   wireDrop("#drop-video", "#file-video", "drive");
   $("#btn-render").addEventListener("click", render);
   $("#btn-describe").addEventListener("click", describe);
+  $("#comfy-keyform").addEventListener("submit", e => connectKey(e, "#comfy-key", "comfy_api_key"));
+  $("#anthropic-keyform").addEventListener("submit", e => connectKey(e, "#anthropic-key", "anthropic_api_key"));
   $("#finishing").addEventListener("change", estimate);
   $("#d-close").addEventListener("click", closeDrawer);
   $("#scrim").addEventListener("click", closeDrawer);
