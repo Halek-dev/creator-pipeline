@@ -76,7 +76,7 @@ Goal: a clip you would post without explaining it; 1080p, smooth, 5–10 s.
 
 Done when: the Run A pair scores ≥24/25 at High tier on the scorecard; a 1080p 48 fps 8-second clip exports from the app.
 
-Status 14 Oct 2026: all six items built and unit-tested (34 tests); every workflow variant accepted by ComfyUI structurally; the app exposes tier, length (1–3 passes), Finish and per-seed contact sheets; [INPUT_GUIDE.md](INPUT_GUIDE.md) written. GPU verification pending: one session with the `wan-animate-2-full` and `finishing` profiles.
+**Done, 14 Oct 2026** (A100 session, ~$3). High tier scored 23–24/25 from stills on the test pair; 2-pass chaining produced a seamless 161-frame clip; the Finish pass delivered 1440×2560 at 48 fps with audio passthrough verified; contact sheets and the length/Finish options worked from the app. Caveats: the score sits at the 24 threshold (hands in the fastest frames), and the 3-pass (10 s) path shares the code but was not rendered. Found and fixed during the session: jobs now survive an app restart and adopt renders still running in ComfyUI. Details in [TEST_LOG.md](TEST_LOG.md).
 
 Effort: 4–5 days. Test cost: ~$8. Downloads: +16.5 GB (full model) +6 GB (SeedVR2) +0.5 GB (FILM).
 
