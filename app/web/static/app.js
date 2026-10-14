@@ -181,9 +181,10 @@
   }
   function renderButton() {
     const b = $("#btn-render");
-    const price = state.price ? `<span class="price">${state.price.currency === "credits" ? "~" : ""}$${state.price.usd.toFixed(2)}${state.price.currency === "credits" ? " credits" : ""}</span>` : "";
-    b.innerHTML = "Render" + price;
-    b.disabled = !(state.preflightOk && state.image && state.video);
+    const pr = state.price;
+    const price = pr ? (pr.currency === "credits" ? `<span class="price">${pr.credits.toLocaleString()} credits (~$${pr.usd.toFixed(2)})</span>` : `<span class="price">$${pr.usd.toFixed(2)}</span>`) : "";
+    b.innerHTML = (pr && pr.over_cap ? "Over the credit cap" : "Render") + price;
+    b.disabled = !(state.preflightOk && state.image && state.video) || !!(pr && pr.over_cap);
   }
   async function render() {
     const b = $("#btn-render"); b.disabled = true; $("#run-error").hidden = true;

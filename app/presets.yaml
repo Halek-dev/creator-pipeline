@@ -72,12 +72,18 @@ tiers:
 
 # Seedance 2.5 (paid API through ComfyUI, no GPU): approximate credit cost per second of video by resolution.
 # The exact price shows on ComfyUI's node badge and on the Comfy account; adjust these as you observe real charges.
+# Seedance 2.5 through ComfyUI's API node, billed in Comfy credits. Measured 14 Oct 2026: a 14 s 1080p clip with
+# sound cost 2,800 credits (200 per second); $5 bought 1,055 credits. 720p and 480p are scaled by pixel count and
+# marked approximate until measured. max_credits refuses any single job estimated above it (about $3 by default).
 seedance:
-  usd_per_second:
-    480p: 0.15
-    720p: 0.35
-    1080p: 0.75
-  minutes_per_clip: 3
+  credits_per_second:
+    480p: 40
+    720p: 90
+    1080p: 200
+  measured: ["1080p"]
+  credits_per_usd: 211
+  max_credits: 600
+  minutes_per_clip: 7
 
 # "Finish" option: SeedVR2 upscale x2 -> FILM 2x frames -> Reality Finish. Needs the "finishing" model profile.
 # Measured on an A100: about 6 min per pass at Standard resolution, 8 at High. Estimated per pass.

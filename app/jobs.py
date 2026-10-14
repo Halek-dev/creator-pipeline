@@ -252,12 +252,25 @@ def estimate_minutes(tier, finishing_cfg, chunks, finishing, seeds):
 
 
 def seedance_estimate(presets, tier_name, seconds, seeds):
-    """(minutes, usd) for Seedance: API credits per second of video, by resolution (approximate; the exact price
-    is shown on ComfyUI's node badge and on your Comfy account)."""
+    """(minutes, usd) for Seedance, from Comfy credits per second of video by resolution (presets.yaml, measured
+    where marked). Use seedance_credits() for the credit figure itself."""
+    minutes, credits, usd, _ = seedance_credits(presets, tier_name, seconds, seeds)
+    return minutes, usd
+
+
+def seedance_credits(presets, tier_name, seconds, seeds):
+    """(minutes, credits, usd, measured) for a Seedance job."""
     cfg = presets.get("seedance", {})
-    rate = cfg.get("usd_per_second", {}).get(SEEDANCE_RESOLUTION.get(tier_name, "720p"), 0.35)
+    res = SEEDANCE_RESOLUTION.get(tier_name, "720p")
+    rate = cfg.get("credits_per_second", {}).get(res, 90)
     duration = SD.clamp_duration(seconds)
-    return cfg.get("minutes_per_clip", 3) * seeds, round(duration * rate * seeds, 2)
+    credits = int(round(duration * rate * seeds))
+    usd = round(credits / float(cfg.get("credits_per_usd", 211)), 2)
+    return cfg.get("minutes_per_clip", 7) * seeds, credits, usd, res in cfg.get("measured", [])
+
+
+def seedance_cap(presets):
+    return int(presets.get("seedance", {}).get("max_credits", 600))
 
 
 def new_job(image_path, video_path, character_name, appearance, scene_name, scene, tier_name, tier, seeds,
@@ -273,7 +286,7 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
     if engine == "seedance":
         finishing = False  # Seedance already delivers its own resolution and sound
         seconds = (info.get("frames") or 120) / float(info.get("fps") or 24)
-        minutes, usd = seedance_estimate(presets, tier_name, seconds, seeds)
+        minutes, credits, usd, _ = seedance_credits(presets, tier_name, seconds, seeds)
     else:
         minutes = estimate_minutes(tier, presets["finishing"], chunks, finishing, seeds)
         usd = round(minutes / 60 * GPU_HOURLY_USD, 2)
@@ -293,7 +306,7 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
         "prompts": {"character": character_prompt, "motion": motion_prompt, "negative": presets["negative_prompt"]},
         "runs": [{"seed": s, "status": "queued", "outputs": [], "error": None, "seconds": None, "sheets": []} for s in seed_list],
         "workflow_version": workflow_version(),
-        "cost": {"estimate_usd": usd, "estimate_minutes": round(minutes, 1), "actual_usd": None},
+        "cost": {"estimate_usd": usd, "estimate_minutes": round(minutes, 1), "actual_usd": None, "credits": credits if engine == "seedance" else None},
         "note": note,
     }
     save_job(job)

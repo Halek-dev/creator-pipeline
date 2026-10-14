@@ -150,7 +150,11 @@ class SeedanceEngineTests(unittest.TestCase):
     def test_seedance_estimate_uses_credits_not_gpu_time(self):
         p = J.load_presets()
         minutes, usd = J.seedance_estimate(p, "Standard", 5.0, 2)
-        self.assertAlmostEqual(usd, 5 * p["seedance"]["usd_per_second"]["720p"] * 2)
+        self.assertAlmostEqual(usd, round(5 * p["seedance"]["credits_per_second"]["720p"] * 2 / p["seedance"]["credits_per_usd"], 2))
+        _, credits, usd, measured = J.seedance_credits(p, "High", 14.0, 1)
+        self.assertEqual(credits, 2800)  # the measured 14 s 1080p render
+        self.assertTrue(measured)
+        self.assertGreater(credits, J.seedance_cap(p))  # that render is now refused by default
         self.assertEqual(minutes, p["seedance"]["minutes_per_clip"] * 2)
 
 

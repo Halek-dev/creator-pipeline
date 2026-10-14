@@ -296,9 +296,14 @@ def estimate(engine: str = "wan", tier: str = "Standard", chunks: int = 1, finis
     seeds = max(1, min(J.MAX_SEEDS, seeds))
     chunks = max(1, min(J.MAX_CHUNKS, chunks))
     if engine == "seedance":
-        minutes, usd = J.seedance_estimate(p, tier, seconds, seeds)
-        return {"minutes": round(minutes, 1), "usd": usd, "currency": "credits",
-                "note": f"Seedance 2.5 at {J.SEEDANCE_RESOLUTION.get(tier, '720p')}, {J.SD.clamp_duration(seconds)} s with sound. Finish and the sliders do not apply."}
+        minutes, credits, usd, measured = J.seedance_credits(p, tier, seconds, seeds)
+        cap = J.seedance_cap(p)
+        res = J.SEEDANCE_RESOLUTION.get(tier, "720p")
+        note = (f"Seedance 2.5 at {res}, {J.SD.clamp_duration(seconds)} s with sound: {credits:,} Comfy credits (about ${usd:.2f})"
+                + ("" if measured else ", approximate until measured at this resolution") + f". Jobs above {cap:,} credits are refused.")
+        if credits > cap:
+            note = f"Over the cap: {credits:,} credits (about ${usd:.2f}) is above the limit of {cap:,}. Use a lower tier, fewer seeds or a shorter clip."
+        return {"minutes": round(minutes, 1), "usd": usd, "credits": credits, "cap": cap, "over_cap": credits > cap, "currency": "credits", "note": note}
     minutes = J.estimate_minutes(p["tiers"][tier], p["finishing"], chunks, finishing, seeds)
     note = p["tiers"][tier].get("note", "")
     if engine == "scail":
@@ -332,10 +337,17 @@ def create_job(body: JobIn):
         raise HTTPException(400, "Add a reference image and a driving video first.")
     engine = body.engine if body.engine in J.ENGINE_LABELS else "wan"
     if engine == "seedance" and not J.COMFY_API_KEY:
-        raise HTTPException(400, "Seedance needs a Comfy API key: set COMFY_API_KEY before starting the app.")
+        raise HTTPException(400, "Seedance needs a Comfy API key: connect your Comfy account first.")
     ok, msgs, info = J.preflight(str(image), str(video), engine)
     if not ok:
         raise HTTPException(400, " ".join(m for m in msgs if level(m) == "bad"))
+    if engine == "seedance":
+        p0 = presets()
+        seconds = (info.get("frames") or 120) / float(info.get("fps") or 24)
+        _, credits, usd, _ = J.seedance_credits(p0, body.tier, seconds, max(1, min(J.MAX_SEEDS, body.seeds)))
+        if credits > J.seedance_cap(p0):
+            raise HTTPException(400, f"Refused: this would cost about {credits:,} Comfy credits (about ${usd:.2f}), above the cap of {J.seedance_cap(p0):,}. "
+                                     "Use a lower tier, fewer seeds or a shorter driving video, or raise max_credits in presets.yaml.")
     if not body.appearance.strip():
         raise HTTPException(400, "Describe the character's looks, or pick a character preset.")
     p = presets()
