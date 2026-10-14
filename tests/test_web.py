@@ -109,7 +109,7 @@ class WebApiTests(unittest.TestCase):
         J.COMFY_API_KEY = ""
         r = self.client.post("/api/jobs", json={"image": img, "video": vid, "engine": "seedance", "character": "X", "appearance": "a", "scene": "S", "background": "b", "motion": "m"})
         self.assertEqual(r.status_code, 400)
-        self.assertIn("COMFY_API_KEY", r.json()["error"])
+        self.assertIn("Comfy", r.json()["error"])
 
     def test_progress_and_costs(self):
         job = {"id": "20260101-000001-a", "status": "running", "engine": "wan", "runs": [{"seed": 1, "status": "done", "seconds": 300, "outputs": []}, {"seed": 2, "status": "running", "queued_at": __import__("time").time() - 300, "outputs": []}],
