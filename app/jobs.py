@@ -179,7 +179,7 @@ def build_scail_workflow(job, seed):
     return wf
 
 
-SEEDANCE_MODES = {"edit": "Swap into the video (keeps its background and timing)", "reference": "New scene from the text"}
+SEEDANCE_MODES = {"edit": "Swap into the video", "reference": "New scene from the text"}
 
 
 def seedance_prompt(mode, appearance, background, motion):
