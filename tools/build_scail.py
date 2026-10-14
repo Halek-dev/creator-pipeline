@@ -27,17 +27,10 @@ OVERLAP = 5
 ANIMATE_OUT = {"positive": 0, "negative": 1, "latent": 2}
 SAMPLER_OUT = {"output": 0, "denoised": 1}
 
+import sys  # noqa: E402
 
-def by_title(wf):
-    return {n["_meta"]["title"]: nid for nid, n in wf.items()}
-
-
-def add(wf, class_type, title, inputs):
-    if title in by_title(wf):
-        raise ValueError(f"duplicate node title {title!r}")
-    nid = str(len(wf) + 1)
-    wf[nid] = {"class_type": class_type, "_meta": {"title": title}, "inputs": inputs}
-    return nid
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from graph import add, by_title  # noqa: E402,F401
 
 
 def frames_for_segments(segments):

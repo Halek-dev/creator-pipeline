@@ -23,20 +23,11 @@ CHUNK_OVERLAP = 1          # frames shared between consecutive passes
 ANIMATE_OUT = {"positive": 0, "negative": 1, "latent": 2, "trim_latent": 3, "trim_image": 4, "video_frame_offset": 5}
 
 
+from graph import add, by_title  # noqa: E402,F401  (shared with the other builders; re-exported for callers)
+
+
 def load_base():
     return json.loads(BASE.read_text(encoding="utf-8"))
-
-
-def by_title(wf):
-    return {n["_meta"]["title"]: nid for nid, n in wf.items()}
-
-
-def add(wf, class_type, title, inputs):
-    if title in by_title(wf):
-        raise ValueError(f"duplicate node title {title!r}")
-    nid = str(max(int(k) for k in wf) + 1)
-    wf[nid] = {"class_type": class_type, "_meta": {"title": title}, "inputs": inputs}
-    return nid
 
 
 def frames_for_chunks(chunks):

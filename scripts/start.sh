@@ -96,7 +96,10 @@ if [ "$IDLE_MINUTES" != "0" ]; then
     if [ -f "$LOGS/watchdog.pid" ] && kill -0 "$(cat "$LOGS/watchdog.pid")" 2>/dev/null; then
         kill "$(cat "$LOGS/watchdog.pid")"
     fi
-    ACTION="stop"; [ -n "${RUNPOD_VOLUME_ID:-}" ] && ACTION="terminate"
+    # Terminate (delete the pod) only when the data actually lives on a network volume; otherwise just stop it.
+    ACTION="stop"
+    case "$(readlink -f "$ROOT/ComfyUI/output" 2>/dev/null || true)" in /workspace/*) ACTION="terminate";; esac
+    [ -n "${CREATOR_DATA:-}" ] && ACTION="terminate"
     nohup "$PY" tools/idle_watchdog.py --minutes "$IDLE_MINUTES" --port "$PORT" --action "$ACTION" > "$LOGS/watchdog.log" 2>&1 &
     echo $! > "$LOGS/watchdog.pid"
 fi

@@ -14,17 +14,10 @@ COMPARE_FRAMES = 81
 RESOLUTIONS = ("480p", "720p", "1080p")
 RATIOS = ("16:9", "4:3", "1:1", "3:4", "9:16", "21:9", "adaptive")
 
+import sys  # noqa: E402
 
-def by_title(wf):
-    return {n["_meta"]["title"]: nid for nid, n in wf.items()}
-
-
-def add(wf, class_type, title, inputs):
-    if title in by_title(wf):
-        raise ValueError(f"duplicate node title {title!r}")
-    nid = str(len(wf) + 1)
-    wf[nid] = {"class_type": class_type, "_meta": {"title": title}, "inputs": inputs}
-    return nid
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from graph import add, by_title  # noqa: E402,F401
 
 
 def clamp_duration(seconds):

@@ -49,9 +49,17 @@ if ! "$VENV/bin/python" -c "import torch, sys; assert sys.version_info[:2] == tu
     "$VENV/bin/python" -m pip install --upgrade pip
     "$VENV/bin/python" -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 fi
+if [ -d .venv ] && [ ! -L .venv ] && [ "$(readlink -f .venv)" != "$(readlink -f "$VENV")" ]; then
+    echo "Replacing the old local .venv with a link to $VENV"
+    rm -rf .venv
+fi
 [ -L .venv ] || [ -d .venv ] || ln -s "$VENV" .venv
 echo "Installing ComfyUI and app packages (a few minutes)..."
-"$VENV/bin/python" -m pip install --progress-bar off -r ComfyUI/requirements.txt -r app/requirements.txt | grep -E "^(Collecting|Successfully|ERROR)" || true
+mkdir -p logs
+if ! "$VENV/bin/python" -m pip install --progress-bar off -r ComfyUI/requirements.txt -r app/requirements.txt > logs/pip.log 2>&1; then
+    echo "Package install FAILED. Last lines of logs/pip.log:"; tail -n 30 logs/pip.log; exit 1
+fi
+grep -E "^Successfully installed" logs/pip.log | tail -1 | cut -c1-200 || echo "packages already up to date"
 
 [ -e ComfyUI/custom_nodes/creator_nodes ] || ln -s "$ROOT/creator_nodes" ComfyUI/custom_nodes/creator_nodes
 chmod +x scripts/*.sh

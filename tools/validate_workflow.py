@@ -51,9 +51,14 @@ def main():
     prompt_id = resp["prompt_id"]
     print(f"ACCEPTED: all nodes, inputs and model names validated. prompt_id {prompt_id}")
     if not args.wait:
-        # Pull it back out of the queue so validation alone doesn't start a render.
+        # Pull it back out of the queue so validation alone doesn't start a render. Only interrupt if OUR prompt
+        # is the one executing (the queue was empty); never touch someone else's running job.
         urllib.request.urlopen(urllib.request.Request(server + "/queue", data=json.dumps({"delete": [prompt_id]}).encode(), headers={"Content-Type": "application/json"}), timeout=30)
-        urllib.request.urlopen(urllib.request.Request(server + "/interrupt", data=b"", method="POST"), timeout=30)
+        with urllib.request.urlopen(server + "/queue", timeout=30) as r:
+            running = [item[1] for item in json.loads(r.read()).get("queue_running", []) if len(item) > 1]
+        if prompt_id in running:
+            urllib.request.urlopen(urllib.request.Request(server + "/interrupt", data=b"", method="POST"), timeout=30)
+            print("(it had already started; interrupted)")
         return
 
     start = time.time()

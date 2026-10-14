@@ -43,24 +43,33 @@ def log(msg):
 
 
 def stop_pod(action):
+    """Try to stop/terminate the pod. Returns True when a stop was issued and accepted, False to retry later."""
     pod_id = os.environ.get("RUNPOD_POD_ID")
     if not pod_id:
         log(f"not on RunPod (no RUNPOD_POD_ID); would {action} the pod now")
-        return
+        return True
     if shutil.which("runpodctl"):
         verb = "remove" if action == "terminate" else "stop"
         log(f"runpodctl {verb} pod {pod_id}")
-        subprocess.run(["runpodctl", verb, "pod", pod_id], check=False)
-        return
+        result = subprocess.run(["runpodctl", verb, "pod", pod_id], capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            return True
+        log(f"runpodctl failed ({result.returncode}): {(result.stderr or result.stdout).strip()[:200]}")
     key = os.environ.get("RUNPOD_API_KEY")
     if not key:
-        log("no runpodctl and no RUNPOD_API_KEY; cannot stop the pod")
-        return
+        log("no working runpodctl and no RUNPOD_API_KEY; cannot stop the pod")
+        return False
     mutation = "podTerminate" if action == "terminate" else "podStop"
     body = json.dumps({"query": f'mutation {{ {mutation}(input: {{podId: "{pod_id}"}}) {{ id }} }}'}).encode()
     req = urllib.request.Request(f"https://api.runpod.io/graphql?api_key={key}", data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        log(f"api {mutation}: {r.read().decode()[:200]}")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            text = r.read().decode()
+        log(f"api {mutation}: {text[:200]}")
+        return '"errors"' not in text
+    except Exception as e:
+        log(f"api {mutation} failed: {e}")
+        return False
 
 
 def main():
@@ -100,8 +109,11 @@ def main():
         status.write_text(json.dumps({"idle_minutes": round(idle_min, 1), "stops_in_minutes": round(remaining, 1), "action": args.action, "checked": datetime.now().isoformat(timespec="seconds")}))
         if idle_min >= allowed:
             log(f"idle for {idle_min:.1f} min; {args.action} now")
-            stop_pod(args.action)
-            sys.exit(0)
+            if stop_pod(args.action):
+                sys.exit(0)
+            log("stop failed; retrying in 5 minutes (the pod is still billing)")
+            time.sleep(300)
+            continue
         time.sleep(args.interval)
 
 

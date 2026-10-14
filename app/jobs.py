@@ -3,7 +3,6 @@
 Jobs and their settings are stored as JSON under ComfyUI/output/_jobs/<job_id>/ (on the network volume
 when one is mounted), next to the rendered clips in ComfyUI/output/motion_swap/<job_id>/.
 """
-import copy
 import hashlib
 import json
 import os
@@ -32,18 +31,22 @@ ENGINES = {
     "SCAIL-2 (keep the video's background)": "scail",  # character swapped into the original driving video (open model)
     "Seedance 2.5 (paid, no GPU)": "seedance",         # ByteDance API through ComfyUI; needs COMFY_API_KEY
 }
+ENGINE_LABELS = {v: k for k, v in ENGINES.items()}
 COMFY_API_KEY = os.environ.get("COMFY_API_KEY", "")
 
 COMFY_INPUT = ROOT / "ComfyUI" / "input"
 COMFY_OUTPUT = ROOT / "ComfyUI" / "output"
 JOBS_DIR = COMFY_OUTPUT / "_jobs"
 WORKFLOW = ROOT / "workflows" / "wan_animate2.json"
+VERSIONED_FILES = [WORKFLOW, ROOT / "tools" / "build_workflows.py", ROOT / "tools" / "build_scail.py", ROOT / "tools" / "build_seedance.py"]
 PRESETS_FILE = ROOT / "app" / "presets.yaml"
 LOGS = ROOT / "logs"
 SERVER = os.environ.get("COMFY_SERVER", "http://127.0.0.1:8188")
 GPU_HOURLY_USD = float(os.environ.get("GPU_HOURLY_USD", "1.0"))
 MIN_FRAMES = B.CHUNK_FRAMES
 MAX_CHUNKS = 3
+MAX_SEEDS = 8
+SEEDANCE_RESOLUTION = {"Fast": "480p", "Standard": "720p", "High": "1080p"}
 
 
 def load_presets():
@@ -51,17 +54,20 @@ def load_presets():
 
 
 def workflow_version():
+    """git sha + a digest of the base workflow and every generator, so a job records exactly which recipe made it."""
     try:
-        sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True, timeout=5).stdout.strip()
+        sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True, timeout=5).stdout.strip() or "unknown"
     except Exception:
         sha = "unknown"
-    digest = hashlib.sha256(WORKFLOW.read_bytes()).hexdigest()[:8]
-    return f"{sha}/{WORKFLOW.name}@{digest}"
+    h = hashlib.sha256()
+    for p in VERSIONED_FILES:
+        h.update(p.read_bytes())
+    return f"{sha}/recipes@{h.hexdigest()[:8]}"
 
 
 # ---------- preflight ----------
 
-def preflight(image_path, video_path):
+def preflight(image_path, video_path, engine="wan"):
     """Return (ok, messages, info). Blocks on things that would fail; warns on things that lower quality.
     info carries what the app needs later: driving frames, fps, sizes."""
     messages, ok, info = [], True, {}
@@ -96,11 +102,20 @@ def preflight(image_path, video_path):
             ok = False
             messages.append(f"Driving video has {frames} frames; at least {MIN_FRAMES} are needed (about {MIN_FRAMES / fps:.1f} s at {fps:.0f} fps).")
         else:
-            passes = B.chunks_for_frames(frames, MAX_CHUNKS)
-            usable = min(frames, B.frames_for_chunks(passes))
-            messages.append(f"Video OK: {vw}×{vh}, {fps:.0f} fps, {frames} frames ({frames / fps:.1f} s). Up to {passes} pass(es) = {usable / fps:.1f} s of output.")
+            choices = length_choices(frames, engine, fps)
+            if engine == "seedance":
+                reach = f"Seedance renders {SD.clamp_duration(frames / fps)} s in one call."
+            else:
+                passes = max(c[1] for c in choices)
+                usable = min(frames, S.frames_for_segments(passes) if engine == "scail" else B.frames_for_chunks(passes))
+                reach = f"Up to {passes} pass(es) = {usable / fps:.1f} s of output."
+            messages.append(f"Video OK: {vw}×{vh}, {fps:.0f} fps, {frames} frames ({frames / fps:.1f} s). {reach}")
         if vw > vh:
-            messages.append("Warning: driving video is landscape; the clip is rendered portrait, so the sides will be cropped.")
+            messages.append({
+                "wan": "Warning: driving video is landscape; Wan Animate 2 renders portrait, so the sides will be cropped.",
+                "scail": "Note: driving video is landscape; SCAIL-2 renders 896×512 to match it.",
+                "seedance": "Note: driving video is landscape; Seedance renders 16:9 to match it.",
+            }[engine])
         messages.append("Reminder: one person in the video, full body, similar framing to the image.")
     except Exception as e:
         ok = False
@@ -130,11 +145,23 @@ def build_prompts(appearance, scene):
     return character_prompt, scene["motion"].strip()
 
 
+def _portrait(opts):
+    return (opts.get("video_h") or 1) >= (opts.get("video_w") or 0)
+
+
+def _set_outputs(wf, job, seed, finishing):
+    prefix = f"motion_swap/{job['id']}/s{seed}"
+    set_input(wf, "Save.filename_prefix", f"{prefix}_result")
+    set_input(wf, "Save Compare.filename_prefix", f"{prefix}_compare")
+    if finishing:
+        set_input(wf, "Final Video.fps", round(float(job["options"].get("fps") or 24) * 2, 3))
+        set_input(wf, "Save Final.filename_prefix", f"{prefix}_final")
+
+
 def build_scail_workflow(job, seed):
     """SCAIL-2 replacement: the driving video's own orientation decides the frame (512×896 or 896×512)."""
     opts = job["options"]
-    portrait = (opts.get("video_h") or 1) >= (opts.get("video_w") or 0)
-    width, height = (512, 896) if portrait else (896, 512)
+    width, height = (512, 896) if _portrait(opts) else (896, 512)
     wf = S.build(segments=opts["chunks"], width=width, height=height, distill=True, replace=True, finishing=opts["finishing"])
     set_input(wf, "Reference Image.image", job["inputs"]["image"])
     set_input(wf, "Driving Video.file", job["inputs"]["video"])
@@ -147,32 +174,21 @@ def build_scail_workflow(job, seed):
     total = min(S.frames_for_segments(opts["chunks"]), opts.get("frames") or S.frames_for_segments(opts["chunks"]))
     set_input(wf, "Trim Tail.length", total)
     set_input(wf, "Driving Trimmed.length", total)
-    prefix = f"motion_swap/{job['id']}/s{seed}"
-    set_input(wf, "Save.filename_prefix", f"{prefix}_result")
-    set_input(wf, "Save Compare.filename_prefix", f"{prefix}_compare")
-    if opts["finishing"]:
-        set_input(wf, "Final Video.fps", round(float(opts.get("fps") or 24) * 2, 3))
-        set_input(wf, "Save Final.filename_prefix", f"{prefix}_final")
+    _set_outputs(wf, job, seed, opts["finishing"])
     return wf
-
-
-SEEDANCE_RESOLUTION = {"Fast": "480p", "Standard": "720p", "High": "1080p"}
 
 
 def build_seedance_workflow(job, seed):
     """Seedance renders the whole driving clip's length (4-30 s) in one call; tier picks the resolution."""
     opts = job["options"]
-    portrait = (opts.get("video_h") or 1) >= (opts.get("video_w") or 0)
     fps = float(opts.get("fps") or 24)
     seconds = (opts.get("frames") or 5 * fps) / fps
     prompt = f"{job['prompts']['character']} The person is {job['prompts']['motion'].rstrip('.')}."
-    wf = SD.build(prompt=prompt, resolution=SEEDANCE_RESOLUTION.get(job["tier"], "720p"), ratio="9:16" if portrait else "16:9",
+    wf = SD.build(prompt=prompt, resolution=SEEDANCE_RESOLUTION.get(job["tier"], "720p"), ratio="9:16" if _portrait(opts) else "16:9",
                   duration=seconds, audio=True, seed=seed)
     set_input(wf, "Reference Image.image", job["inputs"]["image"])
     set_input(wf, "Driving Video.file", job["inputs"]["video"])
-    prefix = f"motion_swap/{job['id']}/s{seed}"
-    set_input(wf, "Save.filename_prefix", f"{prefix}_result")
-    set_input(wf, "Save Compare.filename_prefix", f"{prefix}_compare")
+    _set_outputs(wf, job, seed, False)
     return wf
 
 
@@ -204,13 +220,20 @@ def build_workflow(base, job, seed):
         total = min(B.frames_for_chunks(opts["chunks"]), opts.get("frames") or B.frames_for_chunks(opts["chunks"]))
         set_input(wf, "Trim Tail.length", total)
         set_input(wf, "Driving Trimmed.length", total)
-    prefix = f"motion_swap/{job['id']}/s{seed}"
-    set_input(wf, "Save.filename_prefix", f"{prefix}_result")
-    set_input(wf, "Save Compare.filename_prefix", f"{prefix}_compare")
-    if opts["finishing"]:
-        set_input(wf, "Final Video.fps", round(float(opts.get("fps") or 24) * 2, 3))
-        set_input(wf, "Save Final.filename_prefix", f"{prefix}_final")
+    _set_outputs(wf, job, seed, opts["finishing"])
     return wf
+
+
+def render_settings(job):
+    """One line describing what actually rendered, per engine (the Wan tier numbers don't apply to the others)."""
+    s, t, opts = job["settings"], job["tier_settings"], job.get("options", {})
+    engine = job.get("engine", "wan")
+    if engine == "scail":
+        size = "512×896" if _portrait(opts) else "896×512"
+        return f"SCAIL-2 int8 + DPO + distill LoRA, {size}, 6 steps, motion looseness {s['motion_looseness']} (Identity hold does not apply)"
+    if engine == "seedance":
+        return f"Seedance 2.5 at {SEEDANCE_RESOLUTION.get(job['tier'], '720p')}, {'9:16' if _portrait(opts) else '16:9'}, with sound (sliders do not apply)"
+    return f"Identity hold {s['identity_hold']}, motion looseness {s['motion_looseness']}, {t['width']}×{t['height']}, {t['steps']} steps, model {t.get('model', 'distilled')}"
 
 
 def stage_input(src, job_id, kind):
@@ -240,16 +263,18 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
             note="", chunks=1, finishing=False, info=None, engine="wan"):
     presets = load_presets()
     info = info or {}
+    seeds = max(1, min(MAX_SEEDS, int(seeds)))
+    chunks = max(1, min(MAX_CHUNKS, int(chunks)))
     job_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:4]
     rng = random.Random()
-    seed_list = [rng.randint(0, 2**31 - 1) for _ in range(int(seeds))]
+    seed_list = [rng.randint(0, 2**31 - 1) for _ in range(seeds)]
     character_prompt, motion_prompt = build_prompts(appearance, scene)
     if engine == "seedance":
         finishing = False  # Seedance already delivers its own resolution and sound
         seconds = (info.get("frames") or 120) / float(info.get("fps") or 24)
-        minutes, usd = seedance_estimate(presets, tier_name, seconds, len(seed_list))
+        minutes, usd = seedance_estimate(presets, tier_name, seconds, seeds)
     else:
-        minutes = estimate_minutes(tier, presets["finishing"], chunks, finishing, len(seed_list))
+        minutes = estimate_minutes(tier, presets["finishing"], chunks, finishing, seeds)
         usd = round(minutes / 60 * GPU_HOURLY_USD, 2)
     job = {
         "id": job_id,
@@ -260,7 +285,7 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
         "scene": scene_name,
         "tier": tier_name,
         "tier_settings": {"model": tier.get("model", "distilled"), "width": tier["width"], "height": tier["height"], "steps": tier["steps"]},
-        "options": {"chunks": int(chunks), "finishing": bool(finishing), "frames": info.get("frames"), "fps": info.get("fps"),
+        "options": {"chunks": chunks, "finishing": bool(finishing), "frames": info.get("frames"), "fps": info.get("fps"),
                     "video_w": info.get("video_w"), "video_h": info.get("video_h")},
         "settings": {"identity_hold": float(scene.get("identity_hold", 1.0)), "motion_looseness": float(scene.get("motion_looseness", 1.0))},
         "inputs": {"image": stage_input(image_path, job_id, "ref"), "video": stage_input(video_path, job_id, "drive")},
@@ -276,10 +301,29 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
 
 # ---------- contact sheets ----------
 
+def _picked_frames(path, count=6):
+    """Decode a clip once to count frames, once more keeping only the picked ones (never the whole clip in RAM)."""
+    import av
+
+    with av.open(str(path)) as c:
+        stream = c.streams.video[0]
+        n = stream.frames or sum(1 for _ in c.decode(stream))
+    if n < 2:
+        return []
+    wanted = sorted({0, n // 5, 2 * n // 5, 3 * n // 5, 4 * n // 5, n - 1})[:count]
+    picked = {}
+    with av.open(str(path)) as c:
+        for i, f in enumerate(c.decode(c.streams.video[0])):
+            if i in wanted:
+                picked[i] = f.to_image()
+            if i >= wanted[-1]:
+                break
+    return [picked[i] for i in wanted if i in picked]
+
+
 def make_sheets(job):
     """Six frames + a face strip per seed, from the compare clip, so picking a seed takes seconds."""
     try:
-        import av
         from PIL import Image
     except ImportError:
         return
@@ -288,21 +332,18 @@ def make_sheets(job):
         if not compare or not output_path(compare).exists():
             continue
         try:
-            with av.open(str(output_path(compare))) as c:
-                frames = [f.to_image() for f in c.decode(c.streams.video[0])]
-            n = len(frames)
-            if n < 2:
+            frames = _picked_frames(output_path(compare))
+            if not frames:
                 continue
             w, h = frames[0].size
-            picks = sorted({0, n // 5, 2 * n // 5, 3 * n // 5, 4 * n // 5, n - 1})
             tw, th = w // 2, h // 2
             sheet = Image.new("RGB", (tw * 3, th * 2), "black")
-            for i, k in enumerate(picks[:6]):
-                sheet.paste(frames[k].resize((tw, th)), ((i % 3) * tw, (i // 3) * th))
+            for i, fr in enumerate(frames):
+                sheet.paste(fr.resize((tw, th)), ((i % 3) * tw, (i // 3) * th))
             fw = w // 4
-            faces = Image.new("RGB", (fw * len(picks), fw), "black")
-            for i, k in enumerate(picks):
-                faces.paste(frames[k].crop((w // 8, 0, w // 8 + fw, fw)), (i * fw, 0))
+            faces = Image.new("RGB", (fw * len(frames), fw), "black")
+            for i, fr in enumerate(frames):
+                faces.paste(fr.crop((w // 8, 0, w // 8 + fw, fw)), (i * fw, 0))
             d = job_dir(job["id"])
             d.mkdir(parents=True, exist_ok=True)
             sheet_path, faces_path = d / f"s{run['seed']}_sheet.jpg", d / f"s{run['seed']}_faces.jpg"
@@ -329,14 +370,24 @@ def load_job(job_id):
     return json.loads((job_dir(job_id) / "job.json").read_text(encoding="utf-8"))
 
 
+_JOB_CACHE = {}  # path -> (mtime_ns, job): the Jobs tab polls every few seconds; only re-read files that changed
+
+
 def list_jobs(limit=200):
     if not JOBS_DIR.exists():
         return []
     jobs = []
     for p in sorted(JOBS_DIR.glob("*/job.json"), reverse=True)[:limit]:
         try:
-            jobs.append(json.loads(p.read_text(encoding="utf-8")))
-        except json.JSONDecodeError:
+            mtime = p.stat().st_mtime_ns
+            cached = _JOB_CACHE.get(p)
+            if cached and cached[0] == mtime:
+                jobs.append(cached[1])
+                continue
+            job = json.loads(p.read_text(encoding="utf-8"))
+            _JOB_CACHE[p] = (mtime, job)
+            jobs.append(job)
+        except (json.JSONDecodeError, OSError):
             continue
     return jobs
 
@@ -347,14 +398,19 @@ def output_path(rel):
 
 def resume_pending(submit):
     """Called at app start: jobs still queued, or cut off while running, go back on the queue (oldest first).
-    Finished seeds are kept; only unfinished runs are rendered again. Returns the number of jobs resumed."""
+    Finished seeds are kept; a job whose seeds all finished is just closed. Returns the number of jobs resumed."""
     resumed = 0
     for job in reversed(list_jobs()):
         if job["status"] not in ("queued", "running"):
             continue
+        if job["runs"] and all(r["status"] == "done" for r in job["runs"]):
+            job["status"] = "done"
+            job.setdefault("finished", datetime.now().isoformat(timespec="seconds"))
+            save_job(job)
+            continue
         for run in job["runs"]:
             if run["status"] != "done":
-                run.update(status="queued", error=None, seconds=None)  # prompt_id is kept so the runner can adopt it
+                run.update(status="queued", error=None)  # prompt_id/queued_at are kept so the runner can adopt the render
         job["status"] = "queued"
         job["resumed"] = job.get("resumed", 0) + 1
         save_job(job)
@@ -367,6 +423,10 @@ def resume_pending(submit):
 
 class Runner(threading.Thread):
     """Renders jobs one after another. ComfyUI serialises work anyway; this keeps job status simple."""
+
+    POLL_SECONDS = 2
+    MAX_POLL_ERRORS = 90        # ~3 minutes of ComfyUI being unreachable before giving up on a run
+    LOST_CHECK_EVERY = 15       # polls between "does ComfyUI still have this prompt?" checks
 
     def __init__(self, server=SERVER):
         super().__init__(daemon=True)
@@ -412,6 +472,47 @@ class Runner(threading.Thread):
             pass
         return None, None
 
+    def wait(self, prompt_id):
+        """Poll until the prompt finishes. Tolerates ComfyUI being briefly unreachable; returns None when ComfyUI
+        no longer has the prompt at all (it was restarted or crashed), so the caller can queue it again."""
+        errors = polls = 0
+        while True:
+            time.sleep(self.POLL_SECONDS)
+            polls += 1
+            try:
+                entry = poll(self.server, prompt_id)
+                errors = 0
+            except ComfyError:
+                errors += 1
+                if errors >= self.MAX_POLL_ERRORS:
+                    raise
+                continue
+            if entry is not None:
+                return entry
+            if polls % self.LOST_CHECK_EVERY == 0:
+                try:
+                    if not queue_contains(self.server, prompt_id):
+                        return None
+                except ComfyError:
+                    pass
+
+    def queue_run(self, job, run, base, client_id):
+        """Build and queue one seed. Returns the prompt_id, or None after recording the error on the run."""
+        extra = None
+        if job.get("engine") == "seedance":
+            if not COMFY_API_KEY:
+                run["status"], run["error"] = "error", "Seedance needs a Comfy API key: set COMFY_API_KEY before starting the app."
+                return None
+            extra = {"api_key_comfy_org": COMFY_API_KEY}
+        wf = build_workflow(base, job, run["seed"])
+        try:
+            prompt_id = queue_prompt(self.server, wf, client_id, extra)
+        except ComfyError as e:
+            run["status"], run["error"] = "error", str(e)
+            return None
+        run["queued_at"] = time.time()
+        return prompt_id
+
     def render(self, job_id):
         job = load_job(job_id)
         self.current = job_id
@@ -427,29 +528,32 @@ class Runner(threading.Thread):
         for run in job["runs"]:
             if run["status"] == "done":  # already rendered before a restart
                 continue
-            t0 = time.time()
             entry, prompt_id = self.adopt(run)
             if entry is None and prompt_id is None:
-                extra = None
-                if job.get("engine") == "seedance":
-                    if not COMFY_API_KEY:
-                        run["status"], run["error"] = "error", "Seedance needs a Comfy API key: set COMFY_API_KEY before starting the app."
-                        save_job(job)
-                        continue
-                    extra = {"api_key_comfy_org": COMFY_API_KEY}
-                wf = build_workflow(base, job, run["seed"])
-                try:
-                    prompt_id = queue_prompt(self.server, wf, client_id, extra)
-                except ComfyError as e:
-                    run["status"], run["error"] = "error", str(e)
+                prompt_id = self.queue_run(job, run, base, client_id)
+                if prompt_id is None:
                     save_job(job)
                     continue
             run["status"], run["prompt_id"] = "running", prompt_id
             save_job(job)
-            while entry is None:
-                time.sleep(2)
-                entry = poll(self.server, prompt_id)
-            run["seconds"] = round(time.time() - t0, 1) if run.get("seconds") is None else run["seconds"]
+            if entry is None:
+                entry = self.wait(prompt_id)
+                if entry is None:  # ComfyUI lost it (restart/crash): queue it once more
+                    run["requeued"] = run.get("requeued", 0) + 1
+                    prompt_id = self.queue_run(job, run, base, client_id) if run["requeued"] <= 1 else None
+                    if prompt_id is None:
+                        run["status"] = "error"
+                        run["error"] = run.get("error") or "ComfyUI lost this render (was it restarted?)."
+                        save_job(job)
+                        continue
+                    run["prompt_id"] = prompt_id
+                    save_job(job)
+                    entry = self.wait(prompt_id)
+                    if entry is None:
+                        run["status"], run["error"] = "error", "ComfyUI lost this render twice."
+                        save_job(job)
+                        continue
+            run["seconds"] = round(time.time() - run.get("queued_at", t_job), 1)
             if entry["status"].get("status_str") == "success":
                 run["status"] = "done"
                 run["outputs"] = collect_outputs(entry)
@@ -460,10 +564,9 @@ class Runner(threading.Thread):
 
         make_sheets(job)
         job["finished"] = datetime.now().isoformat(timespec="seconds")
-        seconds = time.time() - t_job
         if job.get("engine") == "seedance":
             job["cost"]["actual_usd"] = job["cost"]["estimate_usd"]  # billed by Comfy credits, not GPU time
         else:
-            job["cost"]["actual_usd"] = round(seconds / 3600 * GPU_HOURLY_USD, 2)
+            job["cost"]["actual_usd"] = round(sum(r.get("seconds") or 0 for r in job["runs"]) / 3600 * GPU_HOURLY_USD, 2)
         job["status"] = "done" if all(r["status"] == "done" for r in job["runs"]) else ("error" if all(r["status"] == "error" for r in job["runs"]) else "partial")
         save_job(job)

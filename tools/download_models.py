@@ -28,8 +28,8 @@ def remote_size(url: str, headers: dict) -> int | None:
 
 def download(url: str, dest: Path, headers: dict) -> None:
     total = remote_size(url, headers)
-    if dest.exists() and total and dest.stat().st_size == total:
-        print(f"  have  {dest.name}")
+    if dest.exists() and (total is None or dest.stat().st_size == total):
+        print(f"  have  {dest.name}" + ("" if total else " (size not verifiable)"))
         return
     if total and shutil.disk_usage(dest.parent).free < total * 1.05:
         sys.exit(f"Not enough disk space for {dest.name} ({total / 1e9:.1f} GB).")

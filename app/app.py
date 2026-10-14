@@ -101,9 +101,12 @@ def estimate_text(tier_name, seeds, chunks, finishing, engine="wan", seconds=5.0
     if engine == "seedance":
         minutes, usd = J.seedance_estimate(p, tier_name, seconds, int(seeds))
         return (f"Seedance 2.5 at {J.SEEDANCE_RESOLUTION.get(tier_name, '720p')}, {J.SD.clamp_duration(seconds)} s, with sound · about {minutes:.0f} min and "
-                f"~${usd:.2f} in Comfy credits for {int(seeds)} seed(s). Finish is not applied (Seedance delivers its own resolution and audio).")
+                f"~${usd:.2f} in Comfy credits for {int(seeds)} seed(s). Finish and the two sliders are not applied (Seedance delivers its own resolution and audio).")
     minutes = J.estimate_minutes(tier, p["finishing"], int(chunks or 1), bool(finishing), int(seeds))
-    return f"{tier.get('note', '')} · about {minutes:.0f} min and ${minutes / 60 * J.GPU_HOURLY_USD:.2f} for {int(seeds)} seed(s)"
+    note = tier.get("note", "")
+    if engine == "scail":
+        note = f"SCAIL-2 at 512×896 or 896×512 by video orientation, 6 steps (tier timing used as a guess; Identity hold does not apply)"
+    return f"{note} · about {minutes:.0f} min and ${minutes / 60 * J.GPU_HOURLY_USD:.2f} for {int(seeds)} seed(s)"
 
 
 def engine_key(engine_label):
@@ -112,7 +115,7 @@ def engine_key(engine_label):
 
 def on_preflight(image, video, engine_label):
     touch_keepalive()
-    ok, msgs, info = J.preflight(image, video)
+    ok, msgs, info = J.preflight(image, video, engine_key(engine_label))
     text = ("**Ready.**\n\n" if ok else "**Fix before running.**\n\n") + "\n\n".join(f"- {m}" for m in msgs)
     choices = J.length_choices(info.get("frames", 0), engine_key(engine_label), info.get("fps", 24.0)) if ok else []
     radio = gr.update(choices=[c[0] for c in choices], value=choices[0][0] if choices else None, interactive=bool(choices))
@@ -121,12 +124,12 @@ def on_preflight(image, video, engine_label):
 
 def on_run(image, video, engine_label, character, appearance, scene_name, background, motion, identity_hold, motion_looseness,
            tier_name, seeds, length_label, finishing, note, info):
-    ok, msgs, info = J.preflight(image, video)
+    engine = engine_key(engine_label)
+    ok, msgs, info = J.preflight(image, video, engine)
     if not ok:
         return "Not queued: " + " ".join(m for m in msgs if not m.startswith(("Image OK", "Video OK", "Reminder")))
     if not appearance.strip():
         return "Not queued: describe the character's looks (or pick a character preset)."
-    engine = engine_key(engine_label)
     chunks = dict(J.length_choices(info.get("frames", 0), engine, info.get("fps", 24.0))).get(length_label, 1)
     tier = presets()["tiers"][tier_name]
     scene = {"background": background, "motion": motion, "identity_hold": identity_hold, "motion_looseness": motion_looseness}
@@ -167,11 +170,11 @@ def job_details(ids, evt):
         return "", None, [], []
     job = J.load_job(ids[evt.index[0]])
     opts = job.get("options", {})
-    engine_name = next((k for k, v in J.ENGINES.items() if v == job.get("engine", "wan")), "Wan Animate 2")
+    engine_name = J.ENGINE_LABELS.get(job.get("engine", "wan"), "Wan Animate 2")
     lines = [f"**{job['id']}** · {job['status']} · {engine_name} · {job['character']} · {job['scene']} · {job['tier']} · {opts.get('chunks', 1)} pass(es)" + (" · Finish" if opts.get("finishing") else ""),
              f"Character prompt: {job['prompts']['character']}",
              f"Motion prompt: {job['prompts']['motion']}",
-             f"Identity hold {job['settings']['identity_hold']}, motion looseness {job['settings']['motion_looseness']}, {job['tier_settings']['width']}×{job['tier_settings']['height']}, {job['tier_settings']['steps']} steps, model {job['tier_settings'].get('model', 'distilled')}",
+             J.render_settings(job),
              f"Workflow version: `{job['workflow_version']}`",
              f"Cost: estimated ${job['cost']['estimate_usd']:.2f}" + (f", actual ${job['cost']['actual_usd']:.2f}" if job['cost']['actual_usd'] is not None else "")]
     if job.get("note"):
@@ -196,8 +199,9 @@ def job_details(ids, evt):
     return "\n\n".join(lines), preview, files, sheets
 
 
-def on_sheet(file, tier_name, finishing):
-    """CSV columns: image,video,character,scene,seeds,passes,note. image/video are file names already in ComfyUI/input."""
+def on_sheet(file, tier_name, finishing, engine_label):
+    """CSV columns: image,video,character,scene,seeds,passes,note[,engine]. image/video are file names already in
+    ComfyUI/input; engine is wan, scail or seedance (defaults to the radio choice)."""
     if file is None:
         return "Upload a CSV first."
     p = presets()
@@ -206,16 +210,20 @@ def on_sheet(file, tier_name, finishing):
     with open(file, newline="", encoding="utf-8") as f:
         for i, row in enumerate(csv.DictReader(f), 1):
             try:
+                engine = (row.get("engine") or "").strip().lower() or engine_key(engine_label)
+                if engine not in J.ENGINE_LABELS:
+                    raise ValueError(f"engine must be one of {', '.join(J.ENGINE_LABELS)}")
                 image = J.COMFY_INPUT / row["image"]
                 video = J.COMFY_INPUT / row["video"]
-                ok, msgs, info = J.preflight(str(image), str(video))
+                ok, msgs, info = J.preflight(str(image), str(video), engine)
                 if not ok:
                     raise ValueError(" ".join(msgs))
                 ch = p["characters"][row["character"]]
                 sc = p["scenes"][row["scene"]]
-                chunks = min(int(row.get("passes") or 1), J.B.chunks_for_frames(info["frames"], J.MAX_CHUNKS))
+                allowed = [c[1] for c in J.length_choices(info["frames"], engine, info["fps"])]
+                chunks = min(int(row.get("passes") or 1), max(allowed))
                 job = J.new_job(str(image), str(video), row["character"], ch["appearance"], row["scene"], sc, tier_name, tier,
-                                int(row.get("seeds") or 1), row.get("note", ""), chunks=chunks, finishing=bool(finishing), info=info)
+                                int(row.get("seeds") or 1), row.get("note", ""), chunks=chunks, finishing=bool(finishing), info=info, engine=engine)
                 RUNNER.submit(job["id"])
                 made += 1
             except Exception as e:
@@ -294,14 +302,15 @@ def build():
                 table.select(on_select_job, ids_state, [detail, preview, downloads, sheets])
 
             with gr.Tab("Job sheet"):
-                gr.Markdown("Bulk mode. Upload a CSV with columns `image,video,character,scene,seeds,passes,note`. `image` and `video` are file names already in `ComfyUI/input` (upload them via Jupyter). Character and scene are preset names; `passes` is 1–3 (capped by the video length).")
+                gr.Markdown("Bulk mode. Upload a CSV with columns `image,video,character,scene,seeds,passes,note` and optionally `engine` (wan, scail or seedance). `image` and `video` are file names already in `ComfyUI/input` (upload them via Jupyter). Character and scene are preset names; `passes` is 1–3 (capped by the video length).")
                 sheet = gr.File(label="CSV", file_types=[".csv"])
                 with gr.Row():
+                    sheet_engine = gr.Radio(list(J.ENGINES), value=list(J.ENGINES)[0], label="Engine for rows without one")
                     sheet_tier = gr.Radio(tier_names, value="Standard", label="Quality tier for all rows")
                     sheet_finish = gr.Checkbox(False, label="Finish for all rows")
                 sheet_btn = gr.Button("Queue all rows")
                 sheet_md = gr.Markdown("")
-                sheet_btn.click(on_sheet, [sheet, sheet_tier, sheet_finish], sheet_md)
+                sheet_btn.click(on_sheet, [sheet, sheet_tier, sheet_finish, sheet_engine], sheet_md)
 
             with gr.Tab("Help"):
                 gr.Markdown(HELP)
@@ -311,4 +320,9 @@ def build():
 if __name__ == "__main__":
     # ComfyUI/output usually points at the network volume, outside the app folder; Gradio must be told it may serve from there.
     allowed = [str(J.COMFY_OUTPUT), str(J.COMFY_OUTPUT.resolve()), str(J.COMFY_INPUT.resolve())]
-    build().queue().launch(server_name="0.0.0.0", server_port=int(os.environ.get("APP_PORT", "7860")), show_api=False, allowed_paths=allowed)
+    # The public link is reachable by anyone who has it and the app can spend GPU time and API credits:
+    # APP_PASSWORD puts a login in front of it (user "team"). Unset = open, for a private LAN only.
+    auth = ("team", os.environ["APP_PASSWORD"]) if os.environ.get("APP_PASSWORD") else None
+    if auth is None:
+        print("WARNING: APP_PASSWORD is not set; anyone with the link can queue jobs.", flush=True)
+    build().queue().launch(server_name="0.0.0.0", server_port=int(os.environ.get("APP_PORT", "7860")), show_api=False, allowed_paths=allowed, auth=auth)

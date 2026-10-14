@@ -249,5 +249,115 @@ class JobStorageTests(unittest.TestCase):
                 J.COMFY_OUTPUT, J.JOBS_DIR = old_out, old_jobs
 
 
+class ReviewFixTests(unittest.TestCase):
+    """Behaviours added by the Phase 3 code review."""
+
+    def test_preflight_messages_follow_the_engine(self):
+        with tempfile.TemporaryDirectory() as d:
+            img = Path(d) / "ref.png"
+            Image.new("RGB", (1024, 1600), "gray").save(img)
+            vid = Path(d) / "wide.mp4"
+            make_video(vid, 170, size=(96, 64))
+            for engine, needle in [("wan", "cropped"), ("scail", "896×512"), ("seedance", "16:9")]:
+                ok, msgs, info = J.preflight(str(img), str(vid), engine)
+                self.assertTrue(ok, msgs)
+                self.assertTrue(any(needle in m for m in msgs), (engine, msgs))
+            ok, msgs, _ = J.preflight(str(img), str(vid), "scail")
+            self.assertIn("Up to 2 pass(es)", " ".join(msgs))  # 170 frames: SCAIL 2 segments (157), Wan 2 chunks (161)
+
+    def test_render_settings_per_engine(self):
+        wan = sample_job()
+        self.assertIn("480×848", J.render_settings(wan))
+        scail = sample_job(engine="scail", options={"video_w": 1920, "video_h": 1080})
+        self.assertIn("896×512", J.render_settings(scail))
+        self.assertNotIn("480×848", J.render_settings(scail))
+        seed = sample_job(engine="seedance", tier="High", options={"video_w": 1080, "video_h": 1920})
+        self.assertIn("1080p", J.render_settings(seed))
+        self.assertIn("9:16", J.render_settings(seed))
+
+    def test_new_job_clamps_seeds_and_passes(self):
+        with tempfile.TemporaryDirectory() as d:
+            old_in, old_jobs = J.COMFY_INPUT, J.JOBS_DIR
+            J.COMFY_INPUT, J.JOBS_DIR = Path(d) / "input", Path(d) / "jobs"
+            try:
+                img = Path(d) / "ref.png"
+                Image.new("RGB", (64, 64), "gray").save(img)
+                vid = Path(d) / "v.mp4"
+                make_video(vid, 5)
+                p = J.load_presets()
+                job = J.new_job(str(img), str(vid), "X", "a", "Studio", p["scenes"]["Studio"], "Standard", p["tiers"]["Standard"], 0, chunks=9)
+                self.assertEqual(len(job["runs"]), 1)
+                self.assertEqual(job["options"]["chunks"], J.MAX_CHUNKS)
+            finally:
+                J.COMFY_INPUT, J.JOBS_DIR = old_in, old_jobs
+
+    def test_list_jobs_cache_notices_changes(self):
+        with tempfile.TemporaryDirectory() as d:
+            old_jobs = J.JOBS_DIR
+            J.JOBS_DIR = Path(d) / "jobs"
+            try:
+                J.save_job({"id": "20260101-000001-a", "status": "queued", "runs": []})
+                self.assertEqual(J.list_jobs()[0]["status"], "queued")
+                import os, time
+                j = J.load_job("20260101-000001-a")
+                j["status"] = "done"
+                J.save_job(j)
+                f = J.JOBS_DIR / "20260101-000001-a" / "job.json"
+                os.utime(f, ns=(time.time_ns() + 10**9, time.time_ns() + 10**9))  # force a different mtime on coarse filesystems
+                self.assertEqual(J.list_jobs()[0]["status"], "done")
+            finally:
+                J.JOBS_DIR = old_jobs
+
+    def test_resume_pending_closes_jobs_whose_seeds_all_finished(self):
+        with tempfile.TemporaryDirectory() as d:
+            old_jobs = J.JOBS_DIR
+            J.JOBS_DIR = Path(d) / "jobs"
+            try:
+                J.save_job({"id": "20260101-000001-a", "status": "running", "cost": {"actual_usd": 0.42},
+                            "runs": [{"seed": 1, "status": "done", "outputs": [], "error": None, "seconds": 300}]})
+                submitted = []
+                self.assertEqual(J.resume_pending(submitted.append), 0)
+                self.assertEqual(submitted, [])
+                j = J.load_job("20260101-000001-a")
+                self.assertEqual(j["status"], "done")
+                self.assertEqual(j["cost"]["actual_usd"], 0.42)  # cost of a finished job is never rewritten
+            finally:
+                J.JOBS_DIR = old_jobs
+
+    def test_runner_wait_returns_none_when_comfy_lost_the_prompt(self):
+        r = J.Runner(server="http://test")
+        r.POLL_SECONDS, r.LOST_CHECK_EVERY = 0, 2
+        calls = {"poll": 0}
+
+        def fake_poll(server, pid):
+            calls["poll"] += 1
+            if calls["poll"] == 1:
+                raise J.ComfyError("connection refused")  # one transient error must not fail the run
+            return None
+
+        old = J.poll, J.queue_contains
+        J.poll, J.queue_contains = fake_poll, lambda server, pid: False
+        try:
+            self.assertIsNone(r.wait("p1"))
+            self.assertGreaterEqual(calls["poll"], 2)
+        finally:
+            J.poll, J.queue_contains = old
+
+    def test_runner_wait_gives_up_after_many_errors(self):
+        r = J.Runner(server="http://test")
+        r.POLL_SECONDS, r.MAX_POLL_ERRORS = 0, 3
+
+        def fake_poll(server, pid):
+            raise J.ComfyError("down")
+
+        old = J.poll
+        J.poll = fake_poll
+        try:
+            with self.assertRaises(J.ComfyError):
+                r.wait("p1")
+        finally:
+            J.poll = old
+
+
 if __name__ == "__main__":
     unittest.main()
