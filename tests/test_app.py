@@ -157,6 +157,27 @@ class JobStorageTests(unittest.TestCase):
             finally:
                 J.COMFY_INPUT, J.JOBS_DIR = old_in, old_jobs
 
+    def test_resume_pending_requeues_unfinished_jobs_oldest_first(self):
+        with tempfile.TemporaryDirectory() as d:
+            old_jobs = J.JOBS_DIR
+            J.JOBS_DIR = Path(d) / "jobs"
+            try:
+                def job(jid, status, runs):
+                    j = {"id": jid, "status": status, "runs": [{"seed": i, "status": s, "outputs": [], "error": None, "seconds": 1.0} for i, s in enumerate(runs)]}
+                    J.save_job(j)
+                for jid, st, runs in [("20260101-000001-a", "done", ["done"]), ("20260101-000002-b", "running", ["done", "running"]),
+                                      ("20260101-000003-c", "queued", ["queued", "queued"]), ("20260101-000004-d", "error", ["error"])]:
+                    job(jid, st, runs)
+                submitted = []
+                self.assertEqual(J.resume_pending(submitted.append), 2)
+                self.assertEqual(submitted, ["20260101-000002-b", "20260101-000003-c"])
+                b = J.load_job("20260101-000002-b")
+                self.assertEqual(b["status"], "queued")
+                self.assertEqual([r["status"] for r in b["runs"]], ["done", "queued"])  # finished seed kept
+                self.assertEqual(b["resumed"], 1)
+            finally:
+                J.JOBS_DIR = old_jobs
+
     def test_make_sheets_from_compare_clip(self):
         with tempfile.TemporaryDirectory() as d:
             old_out, old_jobs = J.COMFY_OUTPUT, J.JOBS_DIR

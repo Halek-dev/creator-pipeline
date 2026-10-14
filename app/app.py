@@ -17,6 +17,9 @@ import jobs as J  # noqa: E402
 
 RUNNER = J.Runner()
 RUNNER.start()
+RESUMED = J.resume_pending(RUNNER.submit)
+if RESUMED:
+    print(f"resumed {RESUMED} unfinished job(s) from disk", flush=True)
 
 HELP = """
 ### How to get a good clip

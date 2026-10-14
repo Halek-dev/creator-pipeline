@@ -264,6 +264,24 @@ def output_path(rel):
     return COMFY_OUTPUT / rel
 
 
+def resume_pending(submit):
+    """Called at app start: jobs still queued, or cut off while running, go back on the queue (oldest first).
+    Finished seeds are kept; only unfinished runs are rendered again. Returns the number of jobs resumed."""
+    resumed = 0
+    for job in reversed(list_jobs()):
+        if job["status"] not in ("queued", "running"):
+            continue
+        for run in job["runs"]:
+            if run["status"] != "done":
+                run.update(status="queued", error=None, seconds=None)
+        job["status"] = "queued"
+        job["resumed"] = job.get("resumed", 0) + 1
+        save_job(job)
+        submit(job["id"])
+        resumed += 1
+    return resumed
+
+
 # ---------- runner ----------
 
 class Runner(threading.Thread):
@@ -309,6 +327,8 @@ class Runner(threading.Thread):
         client_id = str(uuid.uuid4())
         t_job = time.time()
         for run in job["runs"]:
+            if run["status"] == "done":  # already rendered before a restart
+                continue
             wf = build_workflow(base, job, run["seed"])
             t0 = time.time()
             try:
