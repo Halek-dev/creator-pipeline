@@ -46,7 +46,7 @@ else
     echo "ComfyUI starting (pid $!)..."
 fi
 
-for _ in $(seq 1 90); do
+for _ in $(seq 1 240); do  # up to 8 minutes: first start on a fresh pod imports every node pack
     curl -sf -o /dev/null "http://127.0.0.1:$PORT/system_stats" && break
     sleep 2
 done
