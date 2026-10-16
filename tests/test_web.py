@@ -127,6 +127,12 @@ class WebApiTests(unittest.TestCase):
             self.assertEqual(self.client.get("/api/status").status_code, 401)
             self.assertEqual(self.client.get("/api/status", auth=("team", "pw")).status_code, 200)
             self.assertEqual(self.client.get("/api/status", auth=("team", "wrong")).status_code, 401)
+            self.assertIn("Team password", self.client.get("/").text)  # browsers get the login page
+            self.assertEqual(self.client.post("/login", data={"password": "nope"}).status_code, 401)
+            r = self.client.post("/login", data={"password": "pw"}, follow_redirects=False)
+            self.assertEqual(r.status_code, 303)
+            self.assertIn(S.COOKIE, r.cookies)
+            self.assertEqual(self.client.get("/api/status").status_code, 200)  # cookie kept by the client
         finally:
             S.APP_PASSWORD = ""
 

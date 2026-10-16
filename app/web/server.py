@@ -37,20 +37,66 @@ RUNNER = J.Runner()
 
 # ---------- auth ----------
 
+SESSION_SECRET = secrets.token_hex(32)  # new on every app start: a restart logs everyone out, which is fine
+COOKIE = "cp_session"
+
+LOGIN_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creator Pipeline</title><style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0e0f12;color:#f2f3f5;font:14px/1.5 "Manrope",ui-sans-serif,system-ui,sans-serif}
+form{width:min(360px,90vw);background:#15171b;border:1px solid #2a2e36;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:12px}
+h1{font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:10px}h1 i{width:22px;height:22px;border-radius:6px;background:#4c8dff;display:inline-block}
+input{background:#1c1f25;border:1px solid #2a2e36;border-radius:8px;padding:10px 12px;color:#f2f3f5;font:inherit}input:focus{border-color:#4c8dff;outline:none}
+button{border:0;border-radius:9px;background:#4c8dff;color:#fff;font:inherit;font-weight:800;padding:11px;cursor:pointer}
+p{margin:0;color:#9aa0aa;font-size:12.5px}.bad{color:#f06565}
+</style></head><body><form method="post" action="/login"><h1><i></i>Creator Pipeline</h1>
+<p>Team password</p><input type="password" name="password" autofocus autocomplete="current-password">
+<button type="submit">Open the app</button>{msg}</form></body></html>"""
+
+
+def _token():
+    import hashlib
+    import hmac
+
+    return hmac.new(SESSION_SECRET.encode(), APP_PASSWORD.encode(), hashlib.sha256).hexdigest()
+
+
+def _authed(request: Request):
+    if request.cookies.get(COOKIE) == _token():
+        return True
+    header = request.headers.get("authorization", "")
+    if header.startswith("Basic "):
+        try:
+            user, _, pw = base64.b64decode(header[6:]).decode().partition(":")
+            return user == "team" and secrets.compare_digest(pw, APP_PASSWORD)
+        except Exception:
+            return False
+    return False
+
+
 @app.middleware("http")
-async def basic_auth(request: Request, call_next):
-    if APP_PASSWORD:
-        header = request.headers.get("authorization", "")
-        ok = False
-        if header.startswith("Basic "):
-            try:
-                user, _, pw = base64.b64decode(header[6:]).decode().partition(":")
-                ok = user == "team" and secrets.compare_digest(pw, APP_PASSWORD)
-            except Exception:
-                ok = False
-        if not ok:
-            return Response("Login required", status_code=401, headers={"WWW-Authenticate": 'Basic realm="Creator Pipeline"'})
+async def auth(request: Request, call_next):
+    """APP_PASSWORD set: a login page sets a session cookie (browsers), HTTP Basic also works (scripts)."""
+    if APP_PASSWORD and request.url.path not in ("/login",) and not _authed(request):
+        if request.url.path.startswith(("/api/", "/files/")):
+            return JSONResponse({"error": "Login required"}, status_code=401)
+        return Response(LOGIN_PAGE.replace("{msg}", ""), media_type="text/html", status_code=401)
     return await call_next(request)
+
+
+@app.post("/login")
+async def login(request: Request):
+    form = await request.form()
+    pw = str(form.get("password", ""))
+    if APP_PASSWORD and secrets.compare_digest(pw, APP_PASSWORD):
+        resp = Response(status_code=303, headers={"Location": "/"})
+        resp.set_cookie(COOKIE, _token(), httponly=True, samesite="lax", secure=request.url.scheme == "https", max_age=14 * 24 * 3600)
+        return resp
+    return Response(LOGIN_PAGE.replace("{msg}", '<p class="bad">Wrong password.</p>'), media_type="text/html", status_code=401)
+
+
+@app.get("/login")
+def login_page():
+    return Response(LOGIN_PAGE.replace("{msg}", ""), media_type="text/html")
 
 
 @app.on_event("startup")
