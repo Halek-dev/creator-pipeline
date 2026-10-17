@@ -17,7 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 SCAIL_MODEL = "wan2.1_14B_SCAIL_2_int8_convrot.safetensors"
 DPO_LORA = "wan2.1_SCAIL_2_DPO_lora_bf16.safetensors"
-DISTILL_LORA = "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors"
+DISTILL_LORA = "lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank64_bf16.safetensors"  # T2V: the SCAIL-2 maintainers say the I2V one leaks the driver's clothes
+DISTILL_LORA_I2V = "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors"      # what the official template ships; kept for A/B
 SAM_MODEL = "sam3.1_multiplex_fp16.safetensors"
 TEXT_ENCODER = "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
 CLIP_VISION = "clip_vision_h.safetensors"
@@ -46,23 +47,26 @@ def snap32(v):
     return max(32, (int(v) // 32) * 32)
 
 
-HIGH_STEPS, HIGH_CFG = 16, 3.5   # no distill LoRA: about 5x the Standard render time, more texture, less plastic
-NEUTRAL_GREY = 0x808080
+HIGH_STEPS, HIGH_CFG = 40, 4.0   # maintainers' non-distilled setting (shift 5): about 13x the turbo time, final renders only
+BLACK = 0x000000                 # the authors require the reference cut out onto black, never grey
 
 
-def build(segments=1, width=512, height=896, distill=True, replace=True, finishing=False, clean_reference=False, steps=None, cfg=None, identities="0"):
+def build(segments=1, width=512, height=896, distill=True, replace=True, finishing=False, clean_reference=True, steps=None, cfg=None, identities="0",
+          distill_lora=DISTILL_LORA, distill_strength=0.8):
     """identities: which tracked people to swap, by size ("0" = only the biggest person in the reference and in the
     video). The reference tracker also detects dolls, posters and figurines as "human"; with all identities enabled the
     model composites every one of them into the clip (seen with a bookshelf of figurines, 17 Oct 2026).
-    clean_reference: cut the character out onto neutral grey before encoding. Off by default: the feathered edge shows
-    as a grey rim around hair, and it does not fix figurine leaks (those are identities, not pixels)."""
+    clean_reference: cut the character out onto BLACK (hard SAM mask, slightly grown) for the CLIP vision encoder, as the
+    authors require for replacement mode. The WanSCAILToVideo node already blacks out the reference outside the mask
+    before the VAE; this does the same for CLIP vision, so the photo's background never reaches the model.
+    distill_lora / distill_strength: the LightX2V LoRA and its strength; lower strength with more steps buys texture."""
     width, height = snap32(width), snap32(height)
     wf = {}
     # models
     model = add(wf, "UNETLoader", "Model", {"unet_name": SCAIL_MODEL, "weight_dtype": "default"})
     dpo = add(wf, "LoraLoaderModelOnly", "DPO LoRA", {"model": [model, 0], "lora_name": DPO_LORA, "strength_model": 1.0})
     if distill:
-        top = add(wf, "LoraLoaderModelOnly", "Distill LoRA", {"model": [dpo, 0], "lora_name": DISTILL_LORA, "strength_model": 0.8})
+        top = add(wf, "LoraLoaderModelOnly", "Distill LoRA", {"model": [dpo, 0], "lora_name": distill_lora, "strength_model": distill_strength})
         steps, cfg = steps or 6, cfg or 1.0
     else:
         top, steps, cfg = dpo, steps or HIGH_STEPS, cfg or HIGH_CFG
@@ -73,7 +77,7 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
     clipv = add(wf, "CLIPVisionLoader", "CLIP Vision", {"clip_name": CLIP_VISION})
     vae = add(wf, "VAELoader", "VAE", {"vae_name": VAE})
     sam = add(wf, "CheckpointLoaderSimple", "SAM Model", {"ckpt_name": SAM_MODEL})
-    sam_drive_text = add(wf, "CLIPTextEncode", "SAM Driving Prompt", {"clip": [sam, 1], "text": "person"})
+    sam_drive_text = add(wf, "CLIPTextEncode", "SAM Driving Prompt", {"clip": [sam, 1], "text": "human"})  # same word on both tracks, as the template
     sam_ref_text = add(wf, "CLIPTextEncode", "SAM Reference Prompt", {"clip": [sam, 1], "text": "human"})
     # inputs
     ref = add(wf, "LoadImage", "Reference Image", {"image": "reference_streetwear_character.png"})
@@ -83,13 +87,14 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
     ref_in = [ref, 0]
     if clean_reference:
         ref_mask = add(wf, "SAM3_TrackToMask", "Reference Mask", {"track_data": [ref_track, 0], "object_indices": identities})
-        grown = add(wf, "GrowMask", "Reference Mask Grow", {"mask": [ref_mask, 0], "expand": 6, "tapered_corners": True})
-        soft = add(wf, "FeatherMask", "Reference Mask Feather", {"mask": [grown, 0], "left": 6, "top": 6, "right": 6, "bottom": 6})
+        grown = add(wf, "GrowMask", "Reference Mask Grow", {"mask": [ref_mask, 0], "expand": 2, "tapered_corners": True})
         ref_size = add(wf, "GetImageSize", "Reference Size", {"image": [ref, 0]})
-        canvas = add(wf, "EmptyImage", "Neutral Canvas", {"width": [ref_size, 0], "height": [ref_size, 1], "batch_size": 1, "color": NEUTRAL_GREY})
-        cut = add(wf, "ImageCompositeMasked", "Reference Cutout", {"destination": [canvas, 0], "source": [ref, 0], "x": 0, "y": 0, "resize_source": False, "mask": [soft, 0]})
-        ref_in = [cut, 0]
-    enc_ref = add(wf, "CLIPVisionEncode", "Encode Reference", {"clip_vision": [clipv, 0], "image": ref_in, "crop": "none"})
+        canvas = add(wf, "EmptyImage", "Black Canvas", {"width": [ref_size, 0], "height": [ref_size, 1], "batch_size": 1, "color": BLACK})
+        cut = add(wf, "ImageCompositeMasked", "Reference Cutout", {"destination": [canvas, 0], "source": [ref, 0], "x": 0, "y": 0, "resize_source": False, "mask": [grown, 0]})
+        clip_in = [cut, 0]
+    else:
+        clip_in = ref_in
+    enc_ref = add(wf, "CLIPVisionEncode", "Encode Reference", {"clip_vision": [clipv, 0], "image": clip_in, "crop": "none"})
     scheduler_model = [top, 0]
 
     pieces, prev_decode, prev_resized = [], None, None

@@ -108,8 +108,14 @@ class ScailEngineTests(unittest.TestCase):
         by_title = {n["_meta"]["title"]: n["inputs"] for n in wf.values()}
         self.assertEqual(by_title["Reference Image"]["image"], "app_j1_ref.png")
         self.assertEqual(by_title["Driving Video"]["file"], "app_j1_drive.mp4")
-        self.assertEqual(by_title["Character Prompt"]["text"], "C")
+        self.assertTrue(by_title["Character Prompt"]["text"].startswith("A video of C."))  # long SCAIL paragraph built from the parts
         self.assertEqual((by_title["Resize Driving"]["resize_type.width"], by_title["Resize Driving"]["resize_type.height"]), (512, 896))
+        self.assertEqual(by_title["Scheduler"]["steps"], J.SCAIL_TIERS["Standard"]["steps"])
+        job["tier"] = "High"
+        hi = {n["_meta"]["title"]: n["inputs"] for n in J.build_workflow(None, job, 9).values()}
+        self.assertEqual((hi["Resize Driving"]["resize_type.width"], hi["Resize Driving"]["resize_type.height"]), (704, 1280))
+        self.assertEqual(hi["Distill LoRA"]["strength_model"], J.SCAIL_TIERS["High"]["strength"])
+        job["tier"] = "Standard"
         for t in ("Animate", "Animate 2"):
             self.assertEqual(by_title[t]["pose_end"], 0.7, t)
             self.assertTrue(by_title[t]["replacement_mode"])
@@ -127,6 +133,36 @@ class ScailEngineTests(unittest.TestCase):
         self.assertEqual((by_title["Resize Driving"]["resize_type.width"], by_title["Resize Driving"]["resize_type.height"]), (896, 512))
         self.assertEqual([c[1] for c in J.length_choices(160, "scail")], [1, 2])   # 157 needed for 2 segments
         self.assertEqual([c[1] for c in J.length_choices(160, "wan")], [1])        # 161 needed for 2 passes
+
+
+class ScailReferencePadTests(unittest.TestCase):
+    def test_pad_reference_matches_video_aspect_without_cropping(self):
+        with tempfile.TemporaryDirectory() as d:
+            src, dst = Path(d) / "ref.png", Path(d) / "pad.png"
+            Image.new("RGB", (1000, 1000), "gray").save(src)          # square photo
+            size = J.pad_reference(src, dst, 720, 1280)                 # portrait 9:16 video
+            self.assertEqual(size, (1000, 1778))                        # height added, nothing cropped
+            with Image.open(dst) as im:
+                self.assertEqual(im.getpixel((500, 10)), (0, 0, 0))     # black padding
+                self.assertEqual(im.getpixel((500, 889)), (128, 128, 128))
+            size = J.pad_reference(src, dst, 1280, 720)                 # landscape video: width added
+            self.assertEqual(size, (1778, 1000))
+
+    def test_new_job_pads_scail_reference(self):
+        with tempfile.TemporaryDirectory() as d:
+            old = J.COMFY_INPUT, J.JOBS_DIR
+            J.COMFY_INPUT, J.JOBS_DIR = Path(d) / "input", Path(d) / "jobs"
+            try:
+                img = Path(d) / "ref.png"; Image.new("RGB", (640, 800), "gray").save(img)
+                vid = Path(d) / "v.mp4"; make_video(vid, 5)
+                p = J.load_presets()
+                job = J.new_job(str(img), str(vid), "X", "a", "Studio", p["scenes"]["Studio"], "Standard", p["tiers"]["Standard"], 1,
+                                info={"frames": 170, "fps": 24.0, "video_w": 720, "video_h": 1280}, engine="scail")
+                self.assertTrue((J.COMFY_INPUT / job["inputs"]["image_scail"]).exists())
+                wf = J.build_workflow(None, job, 1)
+                self.assertEqual({n["_meta"]["title"]: n["inputs"] for n in wf.values()}["Reference Image"]["image"], job["inputs"]["image_scail"])
+            finally:
+                J.COMFY_INPUT, J.JOBS_DIR = old
 
 
 class SeedanceEngineTests(unittest.TestCase):

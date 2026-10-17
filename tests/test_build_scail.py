@@ -35,6 +35,15 @@ class ScailBuildTests(unittest.TestCase):
         self.assertNotIn("previous_frames", a)
         self.assertEqual(wf[t["Masks"]]["inputs"]["ref_track_data"], [t["SAM Reference Track"], 0])
         self.assertEqual(wf[t["Distill LoRA"]]["inputs"]["strength_model"], 0.8)
+        self.assertEqual(wf[t["Distill LoRA"]]["inputs"]["lora_name"], S.DISTILL_LORA)
+        self.assertIn("T2V", S.DISTILL_LORA)
+        self.assertEqual(wf[t["Encode Reference"]]["inputs"]["image"], [t["Reference Cutout"], 0])  # CLIP vision sees the black cut-out
+        self.assertEqual(wf[t["Animate"]]["inputs"]["reference_image"], [t["Reference Image"], 0])  # the node masks the raw reference itself
+        self.assertEqual(wf[t["Black Canvas"]]["inputs"]["color"], 0)
+        self.assertNotIn("Reference Mask Feather", t)
+        self.assertEqual(wf[t["Masks"]]["inputs"]["object_indices"], "0")
+        self.assertEqual(wf[t["Masks"]]["inputs"]["sort_by"], "area")
+        self.assertEqual(wf[t["SAM Driving Prompt"]]["inputs"]["text"], wf[t["SAM Reference Prompt"]]["inputs"]["text"])
         self.assertEqual(wf[t["Scheduler"]]["inputs"]["steps"], 6)
         self.assertEqual(wf[t["Sampler"]]["inputs"]["cfg"], 1.0)
         self.assertEqual(wf[t["Decode"]]["inputs"]["samples"], [t["Sampler"], 1])  # denoised output, as in the template

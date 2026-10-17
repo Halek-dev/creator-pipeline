@@ -51,7 +51,8 @@ Render 2–4 seeds. In the Jobs tab, the contact sheet shows six frames per seed
 ## SCAIL-2 specifics (character swapped into the video)
 
 - The reference image decides everything about the character: face, hair as photographed, skin, top, necklace, body. Anything the photo does not show (legs, back, shoes) is invented, and invented cloth looks plastic. Use a **full-body** reference for full-body videos; a waist-up reference is fine for a waist-up video.
+- The reference is padded (never cropped) to the video's aspect ratio and cut out onto black before the model sees it, as the SCAIL-2 authors require. Match the framing of the video's first frame: if the video shows the full body, the photo must too.
 - Only the largest person in the reference and in the video is swapped. Dolls, posters and figurines in the background used to be picked up as extra people and pasted into the clip; they are ignored now, but a plain wall behind the character is still the safe choice.
 - Hair comes out as it is in the photo, including lighter tips if the photo has them.
-- High tier on SCAIL-2 drops the speed LoRA for 16 guided steps: about five times the render time, noticeably more real skin and cloth. Use it for the final render of a clip you already like at Standard.
+- Tiers on SCAIL-2: Fast is the official turbo path (6 steps), Standard adds steps (8), High renders at 704p with a softer speed LoRA and 10 steps (about 3.5x Standard time), the resolution the model card says replacement works best at. The authors' own 40-step setting is available to developers in the builder and takes about 13x.
 

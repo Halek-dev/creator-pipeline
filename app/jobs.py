@@ -159,15 +159,38 @@ def _set_outputs(wf, job, seed, finishing):
         set_input(wf, "Save Final.filename_prefix", f"{prefix}_final")
 
 
+# SCAIL-2 quality tiers (resolution follows the video's orientation). Fast = the official turbo path. Standard adds
+# steps. High renders at 704p, which the model card says replacement performs better at, with a softer distill
+# strength and more steps (maintainers: "lower the strength or raise the steps"). None of them is the authors'
+# 40-step cfg 4 setting; that is S.build(distill=False) and takes about 13x the turbo time.
+SCAIL_TIERS = {
+    "Fast": {"size": (512, 896), "steps": 6, "strength": 0.8, "factor": 1.0},
+    "Standard": {"size": (512, 896), "steps": 8, "strength": 0.8, "factor": 1.35},
+    "High": {"size": (704, 1280), "steps": 10, "strength": 0.6, "factor": 3.5},
+}
+
+
+def scail_prompt(appearance, background, motion):
+    """The authors want a long description of the finished video, including the new character's clothing."""
+    looks, scene, move = (x.strip().rstrip(".") for x in (appearance, background, motion))
+    return (f"A video of {looks}. The scene is {scene}. The person is {move}, and the character keeps exactly the same pose, "
+            "movement and timing as the original performer. Natural skin texture, real fabric with folds and seams, consistent lighting "
+            "with the scene, steady camera, no extra people, no duplicated limbs, no distortion.")
+
+
 def build_scail_workflow(job, seed):
-    """SCAIL-2 replacement: the driving video's own orientation decides the frame (512×896 or 896×512)."""
+    """SCAIL-2 replacement: the driving video's own orientation decides the frame; the tier decides size and steps."""
     opts = job["options"]
-    width, height = (512, 896) if _portrait(opts) else (896, 512)
-    # High tier: no distill LoRA, 16 steps with guidance; about 5x the Standard time, noticeably less plastic.
-    wf = S.build(segments=opts["chunks"], width=width, height=height, distill=job.get("tier") != "High", replace=True, finishing=opts["finishing"])
-    set_input(wf, "Reference Image.image", job["inputs"]["image"])
+    tier = SCAIL_TIERS.get(job.get("tier"), SCAIL_TIERS["Standard"])
+    w, h = tier["size"]
+    width, height = (w, h) if _portrait(opts) else (h, w)
+    wf = S.build(segments=opts["chunks"], width=width, height=height, distill=True, replace=True, finishing=opts["finishing"],
+                 steps=tier["steps"], distill_strength=tier["strength"])
+    set_input(wf, "Reference Image.image", job["inputs"].get("image_scail") or job["inputs"]["image"])
     set_input(wf, "Driving Video.file", job["inputs"]["video"])
-    set_input(wf, "Character Prompt.text", job["prompts"]["character"])
+    appearance = job["prompts"]["character"].split("Character appearance description: ", 1)[-1].split(". Background description:", 1)[0]
+    background = job["prompts"]["character"].split("Background description: ", 1)[-1]
+    set_input(wf, "Character Prompt.text", scail_prompt(appearance, background, job["prompts"]["motion"]))
     for node in wf.values():
         if node["class_type"] == "WanSCAILToVideo":
             node["inputs"]["pose_end"] = job["settings"]["motion_looseness"]
@@ -251,9 +274,11 @@ def render_settings(job):
     s, t, opts = job["settings"], job["tier_settings"], job.get("options", {})
     engine = job.get("engine", "wan")
     if engine == "scail":
-        size = "512×896" if _portrait(opts) else "896×512"
-        quality = f"no distill, {S.HIGH_STEPS} steps, cfg {S.HIGH_CFG}" if job.get("tier") == "High" else "distill LoRA, 6 steps"
-        return f"SCAIL-2 int8 + DPO, {quality}, {size}, one identity (largest person), motion looseness {s['motion_looseness']} (Identity hold does not apply)"
+        tier = SCAIL_TIERS.get(job.get("tier"), SCAIL_TIERS["Standard"])
+        w, h = tier["size"]
+        size = f"{w}×{h}" if _portrait(opts) else f"{h}×{w}"
+        return (f"SCAIL-2 int8 + DPO, T2V distill {tier['strength']}, {tier['steps']} steps, {size}, reference padded and cut out on black, "
+                f"one identity (largest person), motion looseness {s['motion_looseness']} (Identity hold does not apply)")
     if engine == "seedance":
         mode = opts.get("seedance_mode", "edit")
         return (f"Seedance 2.5{' Draft' if job['tier'] == 'Fast' else ''} at {SEEDANCE_RESOLUTION.get(job['tier'], '720p')}, "
@@ -270,13 +295,34 @@ def stage_input(src, job_id, kind):
     return name
 
 
-SCAIL_HIGH_FACTOR = 5  # SCAIL-2 High drops the distill LoRA: 16 guided steps instead of 6 unguided, about 5x the time
+def pad_reference(src, dst, video_w, video_h, max_side=2048):
+    """Pad (never crop) the reference onto black so it has the driving video's aspect ratio, as the SCAIL-2 authors ask:
+    the node would otherwise centre-crop it to the output size and lose the top of the head or the feet."""
+    from PIL import Image
+
+    with Image.open(src) as im:
+        im = im.convert("RGB")
+        if im.width > max_side or im.height > max_side:
+            im.thumbnail((max_side, max_side))
+        target = (video_w or 9) / (video_h or 16)
+        w, h = im.size
+        if w / h > target:  # too wide: add height
+            new_w, new_h = w, max(h, round(w / target))
+        else:               # too tall or equal: add width
+            new_w, new_h = max(w, round(h * target)), h
+        canvas = Image.new("RGB", (new_w, new_h), "black")
+        canvas.paste(im, ((new_w - w) // 2, (new_h - h) // 2))
+        canvas.save(dst)
+    return canvas.size
+
+
+SCAIL_BASE_MINUTES = 6  # measured Standard-resolution turbo pass on an RTX PRO 4500 / A100 class GPU
 
 
 def estimate_minutes(tier, finishing_cfg, chunks, finishing, seeds, engine="wan", tier_name=None):
     minutes = tier["minutes_per_clip"]
-    if engine == "scail" and (tier_name or tier.get("name")) == "High":
-        minutes = minutes * SCAIL_HIGH_FACTOR / 1.5  # relative to the Standard 6 min, not the Wan High 9 min
+    if engine == "scail":
+        minutes = SCAIL_BASE_MINUTES * SCAIL_TIERS.get(tier_name or tier.get("name"), SCAIL_TIERS["Standard"])["factor"]
     per_clip = minutes * chunks + (finishing_cfg["minutes_per_clip"] * chunks if finishing else 0)
     return per_clip * seeds
 
@@ -344,6 +390,13 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
         "cost": {"estimate_usd": usd, "estimate_minutes": round(minutes, 1), "actual_usd": None, "credits": credits if engine == "seedance" else None},
         "note": note,
     }
+    if engine == "scail" and info.get("video_w") and info.get("video_h"):
+        padded = f"app_{job_id}_ref_pad.png"
+        try:
+            pad_reference(COMFY_INPUT / job["inputs"]["image"], COMFY_INPUT / padded, info["video_w"], info["video_h"])
+            job["inputs"]["image_scail"] = padded
+        except Exception as e:  # fall back to the raw reference; the node will centre-crop it
+            job["pad_error"] = str(e)
     save_job(job)
     return job
 
