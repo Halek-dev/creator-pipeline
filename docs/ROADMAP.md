@@ -120,6 +120,8 @@ Effort: 2–3 days.
 
 **Serverless decision, 17 Oct 2026.** Serverless WILL be built after the SCAIL-2 verification; the team's reason is pay-per-compute with nothing billed while idle. Design and staged plan: docs/SERVERLESS.md. GPU choices for pods now and endpoints later: docs/GPU_CHOICE.md (RTX PRO 4500 for 512p tiers; 48 GB or 80 GB class for High and Finish; two endpoints, Standard and Large).
 
+**Serverless built, 17 Oct 2026.** Worker image (worker/), endpoint backend (app/backends.py), volume storage over the S3 API (app/storage.py, tools/volume.py); the Runner records billed executionTime per seed; 74 tests. Not yet deployed: needs the endpoint created from the GitHub repo and three keys (docs/SERVERLESS_SETUP.md).
+
 Serverless (pay per clip, $0 idle): the same workflows run on RunPod Serverless with the ComfyUI worker image and the network volume mounted; the app would then call the `/run` endpoint instead of a pod's ComfyUI. Worth it only when the team renders a few clips a day on random days; at batch usage the pod is cheaper and simpler. Not built.
 
 ---

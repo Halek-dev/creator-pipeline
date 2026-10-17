@@ -45,7 +45,7 @@ class ResolveTests(unittest.TestCase):
 class OutputTests(unittest.TestCase):
     def test_collect_outputs_only_output_type(self):
         entry = {"outputs": {"25": {"images": [{"filename": "a.mp4", "subfolder": "x", "type": "output"}, {"filename": "t.png", "subfolder": "", "type": "temp"}]}}}
-        self.assertEqual(collect_outputs(entry), [str(Path("x") / "a.mp4")])
+        self.assertEqual(collect_outputs(entry), ["x/a.mp4"])  # always forward slashes: ComfyUI paths double as S3 keys
 
 
 if __name__ == "__main__":
