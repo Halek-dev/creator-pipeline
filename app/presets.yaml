@@ -54,6 +54,7 @@ tiers:
     height: 848
     steps: 6
     minutes_per_clip: 4
+    min_vram_gib: 22
     note: quick preview, softer
   Standard:
     model: distilled
@@ -61,6 +62,7 @@ tiers:
     height: 848
     steps: 10
     minutes_per_clip: 6
+    min_vram_gib: 22
     note: what we tested (23/25); about 6 min per pass on an A100 or RTX PRO 4500
   High:
     model: full
@@ -68,6 +70,7 @@ tiers:
     height: 1280
     steps: 6
     minutes_per_clip: 9
+    min_vram_gib: 46
     note: full model + distill LoRA at 720p (23-24/25); about 9 min per pass on an A100; needs the wan-animate-2-full models and a 32 GB+ GPU
 
 # Seedance 2.5 (paid API through ComfyUI, no GPU): approximate credit cost per second of video by resolution.

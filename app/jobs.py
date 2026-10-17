@@ -164,10 +164,35 @@ def _set_outputs(wf, job, seed, finishing):
 # strength and more steps (maintainers: "lower the strength or raise the steps"). None of them is the authors'
 # 40-step cfg 4 setting; that is S.build(distill=False) and takes about 13x the turbo time.
 SCAIL_TIERS = {
-    "Fast": {"size": (512, 896), "steps": 6, "strength": 0.8, "factor": 1.0},
-    "Standard": {"size": (512, 896), "steps": 8, "strength": 0.8, "factor": 1.35},
-    "High": {"size": (704, 1280), "steps": 10, "strength": 0.6, "factor": 3.5},
+    "Fast": {"size": (512, 896), "steps": 6, "strength": 0.8, "factor": 1.0, "min_vram_gib": 28},
+    "Standard": {"size": (512, 896), "steps": 8, "strength": 0.8, "factor": 1.35, "min_vram_gib": 28},
+    "High": {"size": (704, 1280), "steps": 10, "strength": 0.6, "factor": 3.5, "min_vram_gib": 40},
 }
+FINISH_MIN_VRAM_GIB = 20  # SeedVR2 3B with temporal chunking; runs after the main model is unloaded
+
+
+def vram_needed_gib(presets, engine, tier_name, finishing=False):
+    """GiB of GPU memory a render needs to run without offloading (docs/GPU_CHOICE.md). Seedance needs none."""
+    if engine == "seedance":
+        return 0
+    if engine == "scail":
+        need = SCAIL_TIERS.get(tier_name, SCAIL_TIERS["Standard"])["min_vram_gib"]
+    else:
+        need = presets["tiers"].get(tier_name, {}).get("min_vram_gib", 22)
+    return max(need, FINISH_MIN_VRAM_GIB if finishing else 0)
+
+
+def gpu_info(server=SERVER, timeout=5):
+    """(name, vram_gib) of ComfyUI's first device, or (None, None) when it cannot be read."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(server + "/system_stats", timeout=timeout) as r:
+            stats = json.loads(r.read())
+        dev = stats["devices"][0]
+        return dev.get("name", "").split(":")[-1].strip()[:60], round(dev.get("vram_total", 0) / 2**30, 1)
+    except Exception:
+        return None, None
 
 
 def scail_prompt(appearance, background, motion):
@@ -370,8 +395,9 @@ def fit_view(src, dst, size):
 
 
 def new_job(image_path, video_path, character_name, appearance, scene_name, scene, tier_name, tier, seeds,
-            note="", chunks=1, finishing=False, info=None, engine="wan", seedance_mode="edit", extra_views=()):
+            note="", chunks=1, finishing=False, info=None, engine="wan", seedance_mode="edit", extra_views=(), allow_offload=False, gpu=(None, None)):
     presets = load_presets()
+    gpu_name, gpu_vram = gpu
     info = info or {}
     seeds = max(1, min(MAX_SEEDS, int(seeds)))
     chunks = max(1, min(MAX_CHUNKS, int(chunks)))
@@ -403,6 +429,7 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
         "prompts": {"character": character_prompt, "motion": motion_prompt, "negative": presets["negative_prompt"]},
         "runs": [{"seed": s, "status": "queued", "outputs": [], "error": None, "seconds": None, "sheets": []} for s in seed_list],
         "workflow_version": workflow_version(),
+        "gpu": {"name": gpu_name, "vram_gib": gpu_vram, "allow_offload": bool(allow_offload)},
         "cost": {"estimate_usd": usd, "estimate_minutes": round(minutes, 1), "actual_usd": None, "credits": credits if engine == "seedance" else None},
         "note": note,
     }

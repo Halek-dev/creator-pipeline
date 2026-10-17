@@ -522,6 +522,20 @@
     }
   },
   "35": {
+    "class_type": "SeedVR2TemporalChunk",
+    "_meta": {
+      "title": "Upscale Chunks"
+    },
+    "inputs": {
+      "latent": [
+        "34",
+        0
+      ],
+      "temporal_overlap": 4,
+      "chunking_mode": "auto"
+    }
+  },
+  "36": {
     "class_type": "SeedVR2Conditioning",
     "_meta": {
       "title": "Upscale Cond"
@@ -532,12 +546,12 @@
         0
       ],
       "vae_conditioning": [
-        "34",
+        "35",
         0
       ]
     }
   },
-  "36": {
+  "37": {
     "class_type": "KSampler",
     "_meta": {
       "title": "Upscale Sampler"
@@ -553,28 +567,44 @@
       "sampler_name": "euler",
       "scheduler": "simple",
       "positive": [
-        "35",
+        "36",
         0
       ],
       "negative": [
-        "35",
+        "36",
         1
       ],
       "latent_image": [
-        "34",
+        "35",
         0
       ],
       "denoise": 1.0
     }
   },
-  "37": {
+  "38": {
+    "class_type": "SeedVR2TemporalMerge",
+    "_meta": {
+      "title": "Upscale Merge"
+    },
+    "inputs": {
+      "latents": [
+        "37",
+        0
+      ],
+      "temporal_overlap": [
+        "35",
+        1
+      ]
+    }
+  },
+  "39": {
     "class_type": "VAEDecodeTiled",
     "_meta": {
       "title": "Upscale Decode"
     },
     "inputs": {
       "samples": [
-        "36",
+        "38",
         0
       ],
       "vae": [
@@ -587,14 +617,14 @@
       "temporal_overlap": 8
     }
   },
-  "38": {
+  "40": {
     "class_type": "SeedVR2PostProcessing",
     "_meta": {
       "title": "Upscale Post"
     },
     "inputs": {
       "images": [
-        "37",
+        "39",
         0
       ],
       "original_resized_images": [
@@ -604,7 +634,7 @@
       "color_correction_method": "lab"
     }
   },
-  "39": {
+  "41": {
     "class_type": "FrameInterpolationModelLoader",
     "_meta": {
       "title": "FILM Model"
@@ -613,31 +643,31 @@
       "model_name": "film_net_fp16.safetensors"
     }
   },
-  "40": {
+  "42": {
     "class_type": "FrameInterpolate",
     "_meta": {
       "title": "Interpolate"
     },
     "inputs": {
       "interp_model": [
-        "39",
+        "41",
         0
       ],
       "images": [
-        "38",
+        "40",
         0
       ],
       "multiplier": 2
     }
   },
-  "41": {
+  "43": {
     "class_type": "Creator_RealityFinish",
     "_meta": {
       "title": "Finish"
     },
     "inputs": {
       "image": [
-        "40",
+        "42",
         0
       ],
       "grain": 0.01,
@@ -648,14 +678,14 @@
       "seed": 0
     }
   },
-  "42": {
+  "44": {
     "class_type": "CreateVideo",
     "_meta": {
       "title": "Final Video"
     },
     "inputs": {
       "images": [
-        "41",
+        "43",
         0
       ],
       "fps": 48.0,
@@ -665,14 +695,14 @@
       ]
     }
   },
-  "43": {
+  "45": {
     "class_type": "SaveVideo",
     "_meta": {
       "title": "Save Final"
     },
     "inputs": {
       "video": [
-        "42",
+        "44",
         0
       ],
       "filename_prefix": "motion_swap/final",

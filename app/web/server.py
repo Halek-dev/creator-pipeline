@@ -125,8 +125,28 @@ def touch_keepalive():
         pass
 
 
+_GPU = {"at": 0.0, "value": (None, None)}
+
+
+def gpu():
+    """ComfyUI's GPU name and VRAM, re-read at most once a minute."""
+    if time.time() - _GPU["at"] > 60:
+        _GPU["value"], _GPU["at"] = J.gpu_info(J.SERVER), time.time()
+    return _GPU["value"]
+
+
+def vram_check(p, engine, tier, finishing):
+    """{'needed', 'gpu', 'ok'}; ok is None when the GPU is unknown (ComfyUI down or no device)."""
+    name, have = gpu()
+    needed = J.vram_needed_gib(p, engine, tier, finishing)
+    ok = None if have is None or needed == 0 else have >= needed
+    return {"vram_needed_gib": needed, "gpu_name": name, "gpu_vram_gib": have, "vram_ok": ok}
+
+
 def status_info():
-    out = {"busy": False, "text": "Idle", "current": RUNNER.current, "pending": RUNNER.pending.qsize(), "stops_in": None, "runner_error": RUNNER.last_error}
+    name, vram = gpu()
+    out = {"busy": False, "text": "Idle", "current": RUNNER.current, "pending": RUNNER.pending.qsize(), "stops_in": None, "runner_error": RUNNER.last_error,
+           "gpu_name": name, "gpu_vram_gib": vram}
     try:
         import json
 
@@ -218,7 +238,7 @@ def summary(job):
 def details(job):
     d = summary(job)
     d.update(prompts=job.get("prompts", {}), settings=job.get("settings", {}), settings_line=J.render_settings(job),
-             workflow_version=job.get("workflow_version"), inputs=job.get("inputs", {}), tier_settings=job.get("tier_settings", {}),
+             workflow_version=job.get("workflow_version"), inputs=job.get("inputs", {}), tier_settings=job.get("tier_settings", {}), gpu=job.get("gpu"),
              options=job.get("options", {}), resumed=job.get("resumed", 0))
     runs = []
     for r in job.get("runs", []):
@@ -351,11 +371,15 @@ def estimate(engine: str = "wan", tier: str = "Standard", chunks: int = 1, finis
             note = f"Over the cap: {credits:,} credits (about ${usd:.2f}) is above the limit of {cap:,}. Use a lower tier, fewer seeds or a shorter clip."
         return {"minutes": round(minutes, 1), "usd": usd, "credits": credits, "cap": cap, "over_cap": credits > cap, "currency": "credits", "note": note}
     minutes = J.estimate_minutes(p["tiers"][tier], p["finishing"], chunks, finishing, seeds, engine, tier)
+    check = vram_check(p, engine, tier, finishing)
     note = p["tiers"][tier].get("note", "")
     if engine == "scail":
         note = ("SCAIL-2 High: no distill LoRA, 16 guided steps, about 5x the Standard time, less plastic skin and cloth."
                 if tier == "High" else "SCAIL-2 at 512×896 or 896×512 by video orientation, 6 steps. Identity hold does not apply.")
-    return {"minutes": round(minutes, 1), "usd": round(minutes / 60 * J.GPU_HOURLY_USD, 2), "currency": "gpu", "note": note}
+    if check["vram_ok"] is False:
+        note += (f" This GPU ({check['gpu_name']}, {check['gpu_vram_gib']:.0f} GiB) is below the {check['vram_needed_gib']} GiB this tier needs to run "
+                 "without offloading: pick a lower tier, or allow offloading (much slower, may fail).")
+    return {"minutes": round(minutes, 1), "usd": round(minutes / 60 * J.GPU_HOURLY_USD, 2), "currency": "gpu", "note": note, **check}
 
 
 class JobIn(BaseModel):
@@ -376,6 +400,7 @@ class JobIn(BaseModel):
     note: str = ""
     seedance_mode: str = "edit"
     extra_views: list[str] = []
+    allow_offload: bool = False
 
 
 @app.post("/api/jobs")
@@ -402,12 +427,17 @@ def create_job(body: JobIn):
     p = presets()
     if body.tier not in p["tiers"]:
         raise HTTPException(400, "Unknown tier")
+    check = vram_check(p, engine, body.tier, body.finishing)
+    if check["vram_ok"] is False and not body.allow_offload:
+        raise HTTPException(400, f"Refused: {check['gpu_name']} has {check['gpu_vram_gib']:.0f} GiB and {body.tier} on this engine needs about "
+                                 f"{check['vram_needed_gib']} GiB to run without offloading. Pick a lower tier or allow offloading.")
     allowed = [c[1] for c in J.length_choices(info.get("frames", 0), engine, info.get("fps", 24.0))]
     chunks = min(max(1, body.chunks), max(allowed) if allowed else 1)
     scene = {"background": body.background, "motion": body.motion, "identity_hold": body.identity_hold, "motion_looseness": body.motion_looseness}
     job = J.new_job(str(image), str(video), body.character, body.appearance, body.scene, scene, body.tier, p["tiers"][body.tier], body.seeds, body.note,
                     chunks=chunks, finishing=body.finishing, info=info, engine=engine, seedance_mode=body.seedance_mode,
-                    extra_views=[str(p) for p in (resolve_input(v) for v in body.extra_views[:2]) if p])
+                    extra_views=[str(p) for p in (resolve_input(v) for v in body.extra_views[:2]) if p],
+                    allow_offload=body.allow_offload, gpu=gpu())
     RUNNER.submit(job["id"])
     return summary(job)
 

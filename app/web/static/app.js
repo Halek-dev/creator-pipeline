@@ -109,7 +109,8 @@
   }
   function setStatus(s) {
     const c = $("#status-chip");
-    c.textContent = s.text; c.className = "chip" + (s.busy ? " busy" : "");
+    c.textContent = s.text + (s.gpu_name ? ` · ${s.gpu_name.replace("NVIDIA ", "")} ${Math.round(s.gpu_vram_gib)} GiB` : "");
+    c.className = "chip" + (s.busy ? " busy" : "");
   }
 
   // ---------- uploads ----------
@@ -185,6 +186,8 @@
         const passes = state.engine === "seedance" ? "whole clip" : `${state.chunks} pass${state.chunks > 1 ? "es" : ""}`;
         $("#est").innerHTML = `<span>${passes} × ${state.seeds} seed${state.seeds > 1 ? "s" : ""}</span><b>about ${Math.round(r.minutes)} min</b>`;
         $("#est-note").textContent = r.note || "";
+        $("#est-note").classList.toggle("bad", r.vram_ok === false);
+        $("#offload-row").hidden = r.vram_ok !== false;
         state.price = r; renderButton();
       } catch (e) { $("#est-note").textContent = e.message; }
     }, 120);
@@ -193,8 +196,9 @@
     const b = $("#btn-render");
     const pr = state.price;
     const price = pr ? (pr.currency === "credits" ? `<span class="price">${pr.credits.toLocaleString()} credits (~$${pr.usd.toFixed(2)})</span>` : `<span class="price">$${pr.usd.toFixed(2)}</span>`) : "";
-    b.innerHTML = (pr && pr.over_cap ? "Over the credit cap" : "Render") + price;
-    b.disabled = !(state.preflightOk && state.image && state.video) || !!(pr && pr.over_cap);
+    const tooSmall = !!(pr && pr.vram_ok === false && !$("#allow_offload").checked);
+    b.innerHTML = (pr && pr.over_cap ? "Over the credit cap" : (tooSmall ? "GPU too small for this tier" : "Render")) + price;
+    b.disabled = !(state.preflightOk && state.image && state.video) || !!(pr && pr.over_cap) || tooSmall;
   }
   async function render() {
     const b = $("#btn-render"); b.disabled = true; $("#run-error").hidden = true;
@@ -206,6 +210,7 @@
         tier: state.tier, seeds: state.seeds, chunks: state.chunks, finishing: $("#finishing").checked, note: $("#note").value,
         seedance_mode: state.seedanceMode || "edit",
         extra_views: state.engine === "scail" && state.views ? ["view1", "view2"].map(k => state.views[k]).filter(Boolean) : [],
+        allow_offload: $("#allow_offload").checked,
       });
       toast(`Queued. ${job.seeds} seed${job.seeds > 1 ? "s" : ""}, about ${Math.round(job.estimate_minutes)} minutes.`);
       state.jobs.unshift(job); job._new = true; renderGrid();
@@ -396,6 +401,7 @@
   $("#comfy-keyform").addEventListener("submit", e => connectKey(e, "#comfy-key", "comfy_api_key"));
   $("#anthropic-keyform").addEventListener("submit", e => connectKey(e, "#anthropic-key", "anthropic_api_key"));
   $("#finishing").addEventListener("change", estimate);
+  $("#allow_offload").addEventListener("change", renderButton);
   $("#d-close").addEventListener("click", closeDrawer);
   $("#scrim").addEventListener("click", closeDrawer);
   $("#d-reuse").addEventListener("click", reuse);

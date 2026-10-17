@@ -121,6 +121,25 @@ class WebApiTests(unittest.TestCase):
         c = self.client.get("/api/costs").json()
         self.assertEqual(c["headers"], J.COST_HEADERS)
 
+    def test_vram_guard_refuses_big_tier_on_small_gpu(self):
+        S._GPU["value"], S._GPU["at"] = ("NVIDIA RTX 4090", 24.0), __import__("time").time()
+        try:
+            e = self.client.get("/api/estimate", params={"engine": "scail", "tier": "High"}).json()
+            self.assertFalse(e["vram_ok"]); self.assertEqual(e["vram_needed_gib"], 40); self.assertIn("offloading", e["note"])
+            e2 = self.client.get("/api/estimate", params={"engine": "wan", "tier": "Standard"}).json()
+            self.assertTrue(e2["vram_ok"])
+            img = self.upload("ref.png", self.img.getvalue(), "ref")
+            vid = self.upload("dance.mp4", self.vid, "drive")
+            body = {"image": img, "video": vid, "engine": "scail", "character": "X", "appearance": "a", "scene": "S", "background": "b", "motion": "m", "tier": "High", "seeds": 1}
+            r = self.client.post("/api/jobs", json=body)
+            self.assertEqual(r.status_code, 400); self.assertIn("Refused", r.json()["error"])
+            r = self.client.post("/api/jobs", json={**body, "allow_offload": True})
+            self.assertEqual(r.status_code, 200, r.text)
+            d = self.client.get("/api/jobs/" + r.json()["id"]).json()
+            self.assertEqual(self.client.get("/api/status").json()["gpu_vram_gib"], 24.0)
+        finally:
+            S._GPU["value"], S._GPU["at"] = (None, None), 0.0
+
     def test_basic_auth_when_password_set(self):
         S.APP_PASSWORD = "pw"
         try:

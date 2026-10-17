@@ -68,6 +68,12 @@ class BuildTests(unittest.TestCase):
         t = B.by_title(wf)
         self.assertEqual(wf[t["Upscale Resize"]]["inputs"]["input"], [t["Trim Tail"], 0])
         self.assertEqual(wf[t["Upscale Sampler"]]["inputs"]["steps"], 1)
+        self.assertEqual(wf[t["Upscale Sampler"]]["inputs"]["latent_image"], [t["Upscale Chunks"], 0])   # chunked latent
+        self.assertEqual(wf[t["Upscale Cond"]]["inputs"]["vae_conditioning"], [t["Upscale Chunks"], 0])
+        self.assertEqual(wf[t["Upscale Merge"]]["inputs"]["latents"], [t["Upscale Sampler"], 0])
+        self.assertEqual(wf[t["Upscale Merge"]]["inputs"]["temporal_overlap"], [t["Upscale Chunks"], 1])
+        self.assertEqual(wf[t["Upscale Decode"]]["inputs"]["samples"], [t["Upscale Merge"], 0])
+        self.assertEqual(wf[t["Upscale Chunks"]]["inputs"]["chunking_mode"], "auto")
         self.assertEqual(wf[t["Interpolate"]]["inputs"]["images"], [t["Upscale Post"], 0])
         self.assertEqual(wf[t["Finish"]]["inputs"]["image"], [t["Interpolate"], 0])
         self.assertEqual(wf[t["Final Video"]]["inputs"]["audio"], [t["Driving Frames"], 1])

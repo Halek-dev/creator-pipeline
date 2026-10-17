@@ -406,6 +406,20 @@ class ReviewFixTests(unittest.TestCase):
             J.poll = old
 
 
+class VramGuardTests(unittest.TestCase):
+    def test_needed_vram_per_engine_and_tier(self):
+        p = J.load_presets()
+        self.assertEqual(J.vram_needed_gib(p, "wan", "Standard"), 22)
+        self.assertEqual(J.vram_needed_gib(p, "wan", "High"), 46)
+        self.assertEqual(J.vram_needed_gib(p, "scail", "Standard"), 28)
+        self.assertEqual(J.vram_needed_gib(p, "scail", "High"), 40)
+        self.assertEqual(J.vram_needed_gib(p, "wan", "Fast", finishing=True), 22)   # chunked Finish fits under the main model's need
+        self.assertEqual(J.vram_needed_gib(p, "seedance", "High"), 0)
+
+    def test_gpu_info_unreachable_is_none(self):
+        self.assertEqual(J.gpu_info("http://127.0.0.1:1", timeout=1), (None, None))
+
+
 class CostSummaryTests(unittest.TestCase):
     def test_monthly_summary_groups_sessions_and_engines(self):
         jobs = [

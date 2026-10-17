@@ -95,10 +95,15 @@ def chained(wf, chunks):
     return wf
 
 
-def with_finishing(wf, scale=2, fps_multiplier=2, fps=48.0, grain=0.01):
+FINISH_TEMPORAL_OVERLAP = 4  # latent frames shared between SeedVR2 chunks and crossfaded at the merge
+
+
+def with_finishing(wf, scale=2, fps_multiplier=2, fps=48.0, grain=0.01, chunked=True):
     """Second pass on the finished frames: SeedVR2 upscale x2 -> FILM frame interpolation x2 -> Reality Finish ->
     a third output video ("Save Final") with the driving video's audio. Wiring follows the official SeedVR2 and
-    FILM templates (one-step euler, tiled VAE, lab colour correction)."""
+    FILM templates (one-step euler, tiled VAE, lab colour correction). chunked: split the latent into temporal
+    chunks sized to free VRAM (SeedVR2TemporalChunk auto) and merge after sampling, so a 161- or 241-frame clip no
+    longer needs an 80 GB card; the VAE was already tiled, only the sampler saw the whole clip."""
     t = by_title(wf)
     src = wf[t["Video"]]["inputs"]["images"]
     up_model = add(wf, "UNETLoader", "Upscale Model", {"unet_name": UPSCALE_MODEL, "weight_dtype": "default"})
@@ -106,9 +111,16 @@ def with_finishing(wf, scale=2, fps_multiplier=2, fps=48.0, grain=0.01):
     resized = add(wf, "ResizeImageMaskNode", "Upscale Resize", {"input": src, "resize_type": "scale by multiplier", "resize_type.multiplier": float(scale), "scale_method": "lanczos"})
     prep = add(wf, "SeedVR2Preprocess", "Upscale Prep", {"resized_images": [resized, 0]})
     enc = add(wf, "VAEEncodeTiled", "Upscale Encode", {"pixels": [prep, 0], "vae": [up_vae, 0], "tile_size": 512, "overlap": 128, "temporal_size": 64, "temporal_overlap": 8})
-    cond = add(wf, "SeedVR2Conditioning", "Upscale Cond", {"model": [up_model, 0], "vae_conditioning": [enc, 0]})
-    ks = add(wf, "KSampler", "Upscale Sampler", {"model": [up_model, 0], "seed": 0, "steps": 1, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "positive": [cond, 0], "negative": [cond, 1], "latent_image": [enc, 0], "denoise": 1.0})
-    dec = add(wf, "VAEDecodeTiled", "Upscale Decode", {"samples": [ks, 0], "vae": [up_vae, 0], "tile_size": 512, "overlap": 128, "temporal_size": 64, "temporal_overlap": 8})
+    latent = [enc, 0]
+    if chunked:
+        chunk = add(wf, "SeedVR2TemporalChunk", "Upscale Chunks", {"latent": [enc, 0], "temporal_overlap": FINISH_TEMPORAL_OVERLAP, "chunking_mode": "auto"})
+        latent = [chunk, 0]
+    cond = add(wf, "SeedVR2Conditioning", "Upscale Cond", {"model": [up_model, 0], "vae_conditioning": latent})
+    ks = add(wf, "KSampler", "Upscale Sampler", {"model": [up_model, 0], "seed": 0, "steps": 1, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "positive": [cond, 0], "negative": [cond, 1], "latent_image": latent, "denoise": 1.0})
+    sampled = [ks, 0]
+    if chunked:
+        sampled = [add(wf, "SeedVR2TemporalMerge", "Upscale Merge", {"latents": [ks, 0], "temporal_overlap": [chunk, 1]}), 0]
+    dec = add(wf, "VAEDecodeTiled", "Upscale Decode", {"samples": sampled, "vae": [up_vae, 0], "tile_size": 512, "overlap": 128, "temporal_size": 64, "temporal_overlap": 8})
     post = add(wf, "SeedVR2PostProcessing", "Upscale Post", {"images": [dec, 0], "original_resized_images": [resized, 0], "color_correction_method": "lab"})
     film = add(wf, "FrameInterpolationModelLoader", "FILM Model", {"model_name": FILM_MODEL})
     interp = add(wf, "FrameInterpolate", "Interpolate", {"interp_model": [film, 0], "images": [post, 0], "multiplier": fps_multiplier})
