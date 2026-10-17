@@ -92,3 +92,19 @@ Conclusions: the three research fixes hold on a real render (identity guard, bla
 
 Lesson: with SCAIL-2, keeping real pixels of the person (outfit, jeans) is not a mask setting; it needs compositing the video back over the result after the fact (a planned post step: SAM mask of the kept region, feathered blend). Whole body at High with the extra full-body view remains the production path.
 
+
+## 17 Oct 2026, first serverless render (endpoint mb0p16x9aea9n8, EU-RO-1, image v0.5.0)
+
+First attempt (job 20261017-223504-59a4) failed after 13 minutes with "ComfyUI did not answer within 780s: Connection refused": the network volume was not attached to the endpoint, so the worker had no models. Worker hardened to say so on the first log line; volume attached under Manage, Edit Endpoint, Network Volume; release v0.5.0 rebuilt the image.
+
+Second attempt (job 20261017-230950-e2fc): SCAIL-2 Standard, red-hair reference, 2.7 s driving clip, one seed, whole body (keep-from-video left off by mistake).
+
+| Phase | Time | Note |
+|---|---|---|
+| In queue | 32 min | "Waiting for GPU to become available": the volume pins the endpoint to EU-RO-1, where both 48 GB tiers were Unavailable and 32 GB PRO was Low Supply. Not billed |
+| Execution | 289 s | RTX 5090 32 GB, 284 s of that inside ComfyUI including model load from the volume |
+| Billed | about $0.13 | 289 s at $1.58/h. The app recorded $0.10 because it assumes the $1.22/h 48 GB price; the worker's GPU name is in s<seed>_worker.json on the volume |
+
+Result: clean. Face, bangs, red hair, dog T-shirt and black shorts from the reference; motion, pink studio background and timing from the driving clip; no figurines, no rim, stable to the last frame. Inputs went up over the S3 API, outputs and the worker record came back the same way with no pod involved. The Library synced it as a normal card.
+
+Open points from this session: 1) EU-RO-1 GPU supply is the weak link (a 32-minute queue is not acceptable for the team); the volume cannot move, so a second volume in a better-stocked S3 data centre (EUR-IS-1 showed RTX 5090, RTX PRO 4500, RTX PRO 6000, A100 and B300 all in stock, EU-CZ-1 and US-CA-2 had no 48 GB class at all) is the candidate fix, at the price of re-downloading the models there. 2) Per-job cost should use the GPU the worker actually got, not the assumed tier price. 3) The keep-from-video compositing still has not been rendered on serverless.
