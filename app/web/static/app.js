@@ -268,7 +268,8 @@
     c.appendChild(thumb);
     const meta = el("div", "meta");
     const price = j.status === "error" ? null : (j.actual_usd != null ? j.actual_usd : j.estimate_usd);
-    meta.innerHTML = `<b>${esc(j.character)} · ${esc(j.scene)}</b><span>${esc(j.engine_label.split(" (")[0])} · ${esc(j.tier)} · ${j.engine === "seedance" ? "whole clip" : j.chunks + " pass" + (j.chunks > 1 ? "es" : "")}${j.finishing ? " · Finish" : ""} · ${j.seeds_done}/${j.seeds}${price != null ? " · $" + price.toFixed(2) : ""}</span><span class="id">${j.id}</span>`;
+    const len = j.seconds_out ? ` · ${j.seconds_out} s` : "";
+    meta.innerHTML = `<b>${esc(j.character)} · ${esc(j.scene)}</b><span>${esc(j.engine_label.split(" (")[0])} · ${esc(j.tier)}${len}${j.finishing ? " · Finish" : ""} · ${j.seeds_done}/${j.seeds}${price != null ? " · $" + price.toFixed(2) : ""}</span><span class="id">${j.id}</span>`;
     c.appendChild(meta);
     c.addEventListener("click", () => openJob(j.id));
     return c;
@@ -317,7 +318,7 @@
     const changed = !drawerJob || drawerJob.status !== j.status || drawerJob.seeds_done !== j.seeds_done || first;
     drawerJob = j;
     $("#d-title").textContent = `${j.character} · ${j.scene}`;
-    $("#d-sub").textContent = `${j.engine_label} · ${j.tier} · ${j.engine === "seedance" ? "whole clip" : j.chunks + " pass" + (j.chunks > 1 ? "es" : "")}${j.finishing ? " · Finish" : ""} · ${j.id}`;
+    $("#d-sub").textContent = `${j.engine_label} · ${j.tier} · ${j.seconds_out ? j.seconds_out + " s · " : ""}${j.engine === "seedance" ? "whole clip" : j.chunks + " pass" + (j.chunks > 1 ? "es" : "")}${j.finishing ? " · Finish" : ""} · ${j.id}`;
     const working = j.status === "queued" || j.status === "running";
     $("#d-progress").hidden = !working;
     if (working) { $("#d-stage").textContent = j.stage; $("#d-pct").textContent = Math.round(j.fraction * 100) + "%"; $("#d-bar").style.width = Math.round(j.fraction * 100) + "%"; }
@@ -327,9 +328,9 @@
     j.runs.forEach(r => r.outputs.forEach(o => { if (o.kind === "compare") vids.push({ label: `Compare · seed ${r.seed}`, url: o.url }); }));
     j.runs.forEach(r => r.outputs.forEach(o => { if (o.kind !== "compare") vids.push({ label: `${o.kind === "final" ? "Final" : "Result"} · seed ${r.seed}`, url: o.url }); }));
     const v = $("#d-video");
-    seg($("#d-videos"), vids.map(x => ({ value: x.url, label: x.label })), vids.length ? vids[0].url : null, url => { v.src = url; v.play().catch(() => {}); });
+    seg($("#d-videos"), vids.map(x => ({ value: x.url, label: x.label + (j.seconds_out ? ` (${j.seconds_out} s)` : "") })), vids.length ? vids[0].url : null, url => { v.src = url; v.load(); v.play().catch(() => {}); });
     $("#d-videos").hidden = vids.length === 0;
-    if (vids.length) { v.src = vids[0].url; } else { v.removeAttribute("src"); v.load(); }
+    if (vids.length) { v.src = vids[0].url; v.load(); } else { v.removeAttribute("src"); v.load(); }
     const sheets = $("#d-sheets"); sheets.innerHTML = "";
     j.runs.forEach(r => {
       const s = el("div", "seed");

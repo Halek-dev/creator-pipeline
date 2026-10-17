@@ -116,6 +116,10 @@ class WebApiTests(unittest.TestCase):
                "cost": {"estimate_minutes": 10, "estimate_usd": 1}, "options": {"chunks": 1}, "character": "c", "scene": "s", "tier": "Standard"}
         stage, frac = S.progress(job)
         self.assertIn("Seed 2 of 2", stage)
+        self.assertIn("5 min in", stage)
+        self.assertEqual(S.elapsed_minutes(job), 5)
+        self.assertEqual(S.output_seconds({"engine": "scail", "options": {"chunks": 3, "frames": 249, "fps": 30.0}}), 7.8)
+        self.assertEqual(S.output_seconds({"engine": "wan", "options": {"chunks": 1, "frames": 249, "fps": 30.0}}), 2.7)
         self.assertGreater(frac, 0.5)
         self.assertLess(frac, 1)
         c = self.client.get("/api/costs").json()

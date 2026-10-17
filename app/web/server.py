@@ -212,12 +212,35 @@ def progress(job):
         part = min(0.95, elapsed / per_run)
         k = done + failed + 1
         left = max(0, round((per_run * (n - done - failed) - elapsed) / 60))
-        return f"Seed {min(k, n)} of {n}, about {left} min left", min(0.98, (done + failed + part) / n)
+        return f"Seed {min(k, n)} of {n} · {round(elapsed / 60)} min in, about {left} left", min(0.98, (done + failed + part) / n)
     if status == "done":
         return "Done", 1.0
     if status == "partial":
         return f"{done} of {n} seeds done", 1.0
     return "Failed", 1.0
+
+
+def output_seconds(job):
+    """Length of the rendered clip in seconds: passes x 81 frames (minus overlaps) at the driving video's fps, capped by the video."""
+    opts = job.get("options", {})
+    frames, fps = opts.get("frames"), float(opts.get("fps") or 24)
+    if not frames:
+        return None
+    engine, chunks = job.get("engine", "wan"), opts.get("chunks", 1)
+    if engine == "seedance":
+        return float(J.SD.clamp_duration(frames / fps))
+    need = J.S.frames_for_segments(chunks) if engine == "scail" else J.B.frames_for_chunks(chunks)
+    return round(min(need, frames) / fps, 1)
+
+
+def elapsed_minutes(job):
+    """Minutes since the current seed was queued, for running jobs; None otherwise."""
+    if job.get("status") != "running":
+        return None
+    current = next((r for r in job.get("runs", []) if r.get("status") == "running"), None)
+    if not current or not current.get("queued_at"):
+        return None
+    return round((time.time() - current["queued_at"]) / 60)
 
 
 def summary(job):
@@ -228,7 +251,7 @@ def summary(job):
         "id": job["id"], "created": job.get("created"), "started": job.get("started"), "finished": job.get("finished"),
         "status": job.get("status"), "engine": job.get("engine", "wan"), "engine_label": J.ENGINE_LABELS.get(job.get("engine", "wan"), "Wan Animate 2"),
         "character": job.get("character"), "scene": job.get("scene"), "tier": job.get("tier"),
-        "chunks": opts.get("chunks", 1), "finishing": bool(opts.get("finishing")), "seconds_out": round((opts.get("frames") or 0) / float(opts.get("fps") or 24), 1) if opts.get("frames") else None,
+        "chunks": opts.get("chunks", 1), "finishing": bool(opts.get("finishing")), "seconds_out": output_seconds(job), "elapsed_min": elapsed_minutes(job),
         "seeds": len(job.get("runs", [])), "seeds_done": sum(1 for r in job.get("runs", []) if r["status"] == "done"),
         "estimate_usd": cost.get("estimate_usd"), "actual_usd": cost.get("actual_usd"), "estimate_minutes": cost.get("estimate_minutes"),
         "poster": poster_url(job), "stage": stage, "fraction": frac, "note": job.get("note", ""), "error": job.get("error"),
