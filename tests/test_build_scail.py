@@ -44,14 +44,18 @@ class ScailBuildTests(unittest.TestCase):
         self.assertEqual(wf[t["Masks"]]["inputs"]["object_indices"], "0")
         self.assertEqual(wf[t["Masks"]]["inputs"]["sort_by"], "area")
         self.assertEqual(wf[t["SAM Driving Prompt"]]["inputs"]["text"], wf[t["SAM Reference Prompt"]]["inputs"]["text"])
-        wu = S.build(width=512, height=896, swap_below=0.6)
+        wu = S.build(width=512, height=896, keep_below=0.6, keep_parts=("jeans", "shirt"))
         tu = S.by_title(wu)
         self.assertTrue(links_ok(wu))
-        self.assertEqual(wu[tu["Animate"]]["inputs"]["pose_video_mask"], [tu["Pose Mask Upper"], 0])
-        self.assertEqual(wu[tu["Keep Region"]]["inputs"]["height"], 896 - int(896 * 0.6))
+        self.assertEqual(wu[tu["Animate"]]["inputs"]["pose_video_mask"], [tu["Masks"], 0])          # the model still sees the whole person
+        self.assertEqual(wu[tu["Keep From Video"]]["inputs"]["destination"], [tu["Trim Tail"], 0])  # composited after the render
+        self.assertEqual(wu[tu["Keep From Video"]]["inputs"]["source"], [tu["Resize Driving For Compare"], 0])
+        self.assertEqual(wu[tu["Keep From Video"]]["inputs"]["mask"], [tu["Keep Union Band"], 0])
         self.assertEqual(wu[tu["Keep Below"]]["inputs"]["y"], int(896 * 0.6))
-        self.assertEqual(wu[tu["White"]]["inputs"]["color"], 0xFFFFFF)
-        self.assertEqual(wu[tu["Masks"]]["inputs"]["ref_track_data"], [tu["SAM Reference Track"], 0])  # reference identity untouched
+        self.assertEqual(wu[tu["Keep Shrink"]]["inputs"]["expand"], -6)
+        self.assertEqual({wu[tu[f"SAM Keep Prompt {p}"]]["inputs"]["text"] for p in ("jeans", "shirt")}, {"jeans", "shirt"})
+        self.assertEqual(wu[tu["Video"]]["inputs"]["images"], [tu["Keep From Video"], 0])
+        self.assertEqual(wu[tu["Compare"]]["inputs"]["image1"], [tu["Keep From Video"], 0])
         wi = S.build(identity_only=True)
         ti = S.by_title(wi)
         self.assertTrue(links_ok(wi))

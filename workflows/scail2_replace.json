@@ -562,6 +562,37 @@
     }
   },
   "37": {
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "Driving Trimmed"
+    },
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "batch_index": 0,
+      "length": 81
+    }
+  },
+  "38": {
+    "class_type": "ResizeImageMaskNode",
+    "_meta": {
+      "title": "Resize Driving For Compare"
+    },
+    "inputs": {
+      "input": [
+        "37",
+        0
+      ],
+      "resize_type": "scale dimensions",
+      "resize_type.width": 512,
+      "resize_type.height": 896,
+      "resize_type.crop": "center",
+      "scale_method": "area"
+    }
+  },
+  "39": {
     "class_type": "CreateVideo",
     "_meta": {
       "title": "Video"
@@ -581,50 +612,19 @@
       ]
     }
   },
-  "38": {
+  "40": {
     "class_type": "SaveVideo",
     "_meta": {
       "title": "Save"
     },
     "inputs": {
       "video": [
-        "37",
+        "39",
         0
       ],
       "filename_prefix": "motion_swap/scail_result",
       "format": "mp4",
       "format.codec": "h264"
-    }
-  },
-  "39": {
-    "class_type": "ImageFromBatch",
-    "_meta": {
-      "title": "Driving Trimmed"
-    },
-    "inputs": {
-      "image": [
-        "15",
-        0
-      ],
-      "batch_index": 0,
-      "length": 81
-    }
-  },
-  "40": {
-    "class_type": "ResizeImageMaskNode",
-    "_meta": {
-      "title": "Resize Driving For Compare"
-    },
-    "inputs": {
-      "input": [
-        "39",
-        0
-      ],
-      "resize_type": "scale dimensions",
-      "resize_type.width": 512,
-      "resize_type.height": 896,
-      "resize_type.crop": "center",
-      "scale_method": "area"
     }
   },
   "41": {
@@ -638,7 +638,7 @@
         0
       ],
       "image2": [
-        "40",
+        "38",
         0
       ],
       "direction": "right",

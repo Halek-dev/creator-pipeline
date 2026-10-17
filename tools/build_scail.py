@@ -52,8 +52,8 @@ BLACK = 0x000000                 # the authors require the reference cut out ont
 
 
 def build(segments=1, width=512, height=896, distill=True, replace=True, finishing=False, clean_reference=True, steps=None, cfg=None, identities="0",
-          distill_lora=DISTILL_LORA, distill_strength=0.8, extra_views=0, swap_below=1.0, identity_only=False,
-          identity_parts=("head", "hair", "arm", "hand")):
+          distill_lora=DISTILL_LORA, distill_strength=0.8, extra_views=0, identity_only=False,
+          identity_parts=("head", "hair", "arm", "hand"), keep_below=1.0, keep_parts=(), keep_shrink=6):
     """identities: which tracked people to swap, by size ("0" = only the biggest person in the reference and in the
     video). The reference tracker also detects dolls, posters and figurines as "human"; with all identities enabled the
     model composites every one of them into the clip (seen with a bookshelf of figurines, 17 Oct 2026).
@@ -61,9 +61,11 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
     authors require for replacement mode. The WanSCAILToVideo node already blacks out the reference outside the mask
     before the VAE; this does the same for CLIP vision, so the photo's background never reaches the model.
     distill_lora / distill_strength: the LightX2V LoRA and its strength; lower strength with more steps buys texture.
-    swap_below: fraction of the frame height (from the top) that is swapped; 1.0 = whole body. 0.6 keeps everything
-    below 60% of the frame from the driving video (its real jeans, shoes, floor) by painting that part of the colored
-    pose mask white (= environment in replacement mode), so only head and torso are regenerated.
+    keep_below / keep_parts: COMPOSITING after the render. The whole person is still generated, then the driving
+    video's own pixels are pasted back over the regions to keep: everything below keep_below (fraction of the frame
+    height, 1.0 = nothing) and every garment SAM 3.1 finds for the words in keep_parts (e.g. "jeans", "shirt"),
+    shrunk by keep_shrink px so the seam falls inside the real fabric. This is the reliable way to keep real clothes:
+    telling the model to keep them as "environment" makes it repaint them (17 Oct 2026 renders).
     identity_only: keep the driving video's clothing and body; regenerate only the parts that carry identity. SAM 3.1
     tracks each of identity_parts in the driving video, their union (grown a little) is the swap area, and the rest
     of the person is painted white in the pose mask (= environment, kept as filmed). Experimental: the model was
@@ -126,13 +128,6 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
         drive_track = add(wf, "SAM3_VideoTrack", f"SAM Driving Track{sfx}", {"images": [resized, 0], "model": [sam, 0], "conditioning": [sam_drive_text, 0], "detection_threshold": 0.5, "max_objects": 4, "detect_interval": 1})
         masks = add(wf, "SCAIL2ColoredMask", f"Masks{sfx}", {"driving_track_data": [drive_track, 0], "ref_track_data": [ref_track, 0], "object_indices": identities, "sort_by": "area", "replacement_mode": replace})
         pose_mask = [masks, 0]
-        if swap_below < 1.0:
-            keep_h = max(8, height - int(height * swap_below))
-            keep = add(wf, "SolidMask", f"Keep Region{sfx}", {"value": 1.0, "width": width, "height": keep_h})
-            canvas_m = add(wf, "SolidMask", f"Keep Canvas{sfx}", {"value": 0.0, "width": width, "height": height})
-            region = add(wf, "MaskComposite", f"Keep Below{sfx}", {"destination": [canvas_m, 0], "source": [keep, 0], "x": 0, "y": height - keep_h, "operation": "add"})
-            white = add(wf, "EmptyImage", f"White{sfx}", {"width": width, "height": height, "batch_size": 1, "color": 0xFFFFFF})
-            pose_mask = [add(wf, "ImageCompositeMasked", f"Pose Mask Upper{sfx}", {"destination": [masks, 0], "source": [white, 0], "x": 0, "y": 0, "resize_source": False, "mask": [region, 0]}), 0]
         if identity_only:
             union = None
             for part in identity_parts:
@@ -171,12 +166,30 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
     for k, piece in enumerate(pieces[1:], 2):
         joined = [add(wf, "ImageBatch", f"Join {k}", {"image1": joined, "image2": piece}), 0]
     tail = add(wf, "ImageFromBatch", "Trim Tail", {"image": joined, "batch_index": 0, "length": frames_for_segments(segments)})
-    video = add(wf, "CreateVideo", "Video", {"images": [tail, 0], "fps": [frames, 2], "audio": [frames, 1]})
-    add(wf, "SaveVideo", "Save", {"video": [video, 0], "filename_prefix": "motion_swap/scail_result", "format": "mp4", "format.codec": "h264"})
-    # side-by-side with the driving video, for scoring
     drive_all = add(wf, "ImageFromBatch", "Driving Trimmed", {"image": [frames, 0], "batch_index": 0, "length": frames_for_segments(segments)})
     drive_resized = add(wf, "ResizeImageMaskNode", "Resize Driving For Compare", {"input": [drive_all, 0], "resize_type": "scale dimensions", "resize_type.width": width, "resize_type.height": height, "resize_type.crop": "center", "scale_method": "area"})
-    compare = add(wf, "ImageStitch", "Compare", {"image1": [tail, 0], "image2": [drive_resized, 0], "direction": "right", "match_image_size": True, "spacing_width": 0, "spacing_color": "white"})
+    final = [tail, 0]
+    keep_parts = [p.strip() for p in keep_parts if p and p.strip()]
+    if keep_below < 1.0 or keep_parts:
+        keep = None
+        for part in keep_parts:
+            ptxt = add(wf, "CLIPTextEncode", f"SAM Keep Prompt {part}", {"clip": [sam, 1], "text": part})
+            ptrack = add(wf, "SAM3_VideoTrack", f"SAM Keep Track {part}", {"images": [drive_resized, 0], "model": [sam, 0], "conditioning": [ptxt, 0], "detection_threshold": 0.4, "max_objects": 4, "detect_interval": 1})
+            pmask = add(wf, "SAM3_TrackToMask", f"Keep Mask {part}", {"track_data": [ptrack, 0], "object_indices": ""})
+            keep = [pmask, 0] if keep is None else [add(wf, "MaskComposite", f"Keep Union {part}", {"destination": keep, "source": [pmask, 0], "x": 0, "y": 0, "operation": "or"}), 0]
+        if keep is not None and keep_shrink:
+            keep = [add(wf, "GrowMask", "Keep Shrink", {"mask": keep, "expand": -int(keep_shrink), "tapered_corners": True}), 0]
+        if keep_below < 1.0:
+            keep_h = max(8, height - int(height * keep_below))
+            band = add(wf, "SolidMask", "Keep Band", {"value": 1.0, "width": width, "height": keep_h})
+            canvas_m = add(wf, "SolidMask", "Keep Canvas", {"value": 0.0, "width": width, "height": height})
+            region = add(wf, "MaskComposite", "Keep Below", {"destination": [canvas_m, 0], "source": [band, 0], "x": 0, "y": height - keep_h, "operation": "add"})
+            keep = [region, 0] if keep is None else [add(wf, "MaskComposite", "Keep Union Band", {"destination": keep, "source": [region, 0], "x": 0, "y": 0, "operation": "or"}), 0]
+        final = [add(wf, "ImageCompositeMasked", "Keep From Video", {"destination": [tail, 0], "source": [drive_resized, 0], "x": 0, "y": 0, "resize_source": False, "mask": keep}), 0]
+    video = add(wf, "CreateVideo", "Video", {"images": final, "fps": [frames, 2], "audio": [frames, 1]})
+    add(wf, "SaveVideo", "Save", {"video": [video, 0], "filename_prefix": "motion_swap/scail_result", "format": "mp4", "format.codec": "h264"})
+    # side-by-side with the driving video, for scoring
+    compare = add(wf, "ImageStitch", "Compare", {"image1": final, "image2": [drive_resized, 0], "direction": "right", "match_image_size": True, "spacing_width": 0, "spacing_color": "white"})
     cvideo = add(wf, "CreateVideo", "Compare Video", {"images": [compare, 0], "fps": [frames, 2]})
     add(wf, "SaveVideo", "Save Compare", {"video": [cvideo, 0], "filename_prefix": "motion_swap/scail_compare", "format": "mp4", "format.codec": "h264"})
     if finishing:

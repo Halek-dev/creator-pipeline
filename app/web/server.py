@@ -426,8 +426,8 @@ class JobIn(BaseModel):
     seedance_mode: str = "edit"
     extra_views: list[str] = []
     allow_offload: bool = False
-    swap_below: float = 1.0
-    swap_region: str = "whole"
+    keep_below: float = 1.0
+    keep_parts: list[str] = []
 
 
 @app.post("/api/jobs")
@@ -464,7 +464,7 @@ def create_job(body: JobIn):
     job = J.new_job(str(image), str(video), body.character, body.appearance, body.scene, scene, body.tier, p["tiers"][body.tier], body.seeds, body.note,
                     chunks=chunks, finishing=body.finishing, info=info, engine=engine, seedance_mode=body.seedance_mode,
                     extra_views=[str(p) for p in (resolve_input(v) for v in body.extra_views[:2]) if p],
-                    allow_offload=body.allow_offload, gpu=gpu(), swap_below=body.swap_below, swap_region=body.swap_region)
+                    allow_offload=body.allow_offload, gpu=gpu(), keep_below=body.keep_below, keep_parts=body.keep_parts)
     RUNNER.submit(job["id"])
     return summary(job)
 

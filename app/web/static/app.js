@@ -88,14 +88,7 @@
     const needKey = state.engine === "seedance" && !state.boot.seedance_available;
     $("#seg-seedance-mode").hidden = state.engine !== "seedance";
     $("#views").hidden = state.engine !== "scail";
-    if (state.engine === "scail" && !$("#seg-region").children.length) {
-      state.region = state.region || "whole";
-      seg($("#seg-region"), [{ value: "whole", label: "Whole body" }, { value: "upper", label: "Upper body" }], state.region, v => {
-        state.region = v; $("#region-split-row").hidden = v !== "upper";
-        $("#region-hint").textContent = v === "upper" ? "Head and torso are swapped; below the waist line the model is told the person is environment. Experimental: SCAIL-2 regenerates environment too, so check the jeans survive."
-          : "Everything about the person is regenerated from the reference.";
-      });
-    }
+
     if (state.engine === "seedance" && !$("#seg-seedance-mode").children.length) {
       state.seedanceMode = state.seedanceMode || "edit";
       seg($("#seg-seedance-mode"), Object.entries(state.boot.seedance_modes).map(([k, v]) => ({ value: k, label: v, title: v })), state.seedanceMode, v => { state.seedanceMode = v; estimate(); });
@@ -226,8 +219,8 @@
         seedance_mode: state.seedanceMode || "edit",
         extra_views: state.engine === "scail" && state.views ? ["view1", "view2"].map(k => state.views[k]).filter(Boolean) : [],
         allow_offload: $("#allow_offload").checked,
-        swap_below: state.engine === "scail" && state.region === "upper" ? (parseFloat($("#swap_below").value) || 60) / 100 : 1.0,
-        swap_region: state.engine === "scail" ? (state.region || "whole") : "whole",
+        keep_below: state.engine === "scail" && $("#keep_below_on").checked ? (parseFloat($("#keep_below").value) || 60) / 100 : 1.0,
+        keep_parts: state.engine === "scail" ? $("#keep_parts").value.split(",").map(s => s.trim()).filter(Boolean) : [],
       });
       toast(`Queued. ${job.seeds} seed${job.seeds > 1 ? "s" : ""}, about ${Math.round(job.estimate_minutes)} minutes.`);
       state.jobs.unshift(job); job._new = true; renderGrid();
@@ -384,9 +377,10 @@
     state.seeds = Math.min(4, Math.max(1, j.seeds)); seg($("#seg-seeds"), [1, 2, 3, 4].map(n => ({ value: n, label: String(n) })), state.seeds, v => { state.seeds = v; estimate(); });
     state.chunks = j.chunks; $("#finishing").checked = !!j.finishing; $("#note").value = j.note || "";
     if (j.engine === "scail") {
-      state.region = j.options.swap_region || (j.options.swap_below && j.options.swap_below < 1 ? "upper" : "whole");
-      if (j.options.swap_below && j.options.swap_below < 1) $("#swap_below").value = Math.round(j.options.swap_below * 100);
-      $("#seg-region").innerHTML = ""; engineHint(); $("#region-split-row").hidden = state.region !== "upper";
+      const kb = j.options.keep_below || 1;
+      $("#keep_below_on").checked = kb < 1; $("#keep-below-row").hidden = !(kb < 1);
+      if (kb < 1) $("#keep_below").value = Math.round(kb * 100);
+      $("#keep_parts").value = (j.options.keep_parts || []).join(", ");
     }
     await setInputsFromJob(j);
     toast("Settings and inputs loaded. Change what you want, then Render.");
@@ -425,6 +419,7 @@
   $("#anthropic-keyform").addEventListener("submit", e => connectKey(e, "#anthropic-key", "anthropic_api_key"));
   $("#finishing").addEventListener("change", estimate);
   $("#allow_offload").addEventListener("change", renderButton);
+  $("#keep_below_on").addEventListener("change", e => { $("#keep-below-row").hidden = !e.target.checked; });
   $("#d-close").addEventListener("click", closeDrawer);
   $("#scrim").addEventListener("click", closeDrawer);
   $("#d-reuse").addEventListener("click", reuse);

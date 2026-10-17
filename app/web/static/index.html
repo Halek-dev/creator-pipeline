@@ -55,10 +55,11 @@
             <label class="drop mini" for="file-view2"><input type="file" id="file-view2" accept="image/png,image/jpeg,image/webp" hidden><img id="view2-preview" alt="" hidden><span class="drop-text"><b>Close-up</b>face or outfit</span><b class="drop-name" id="name-view2" hidden></b></label>
           </div>
           <div class="hint">Photos of the same character give SCAIL-2 the parts the main photo does not show (legs, back, texture). Plain backgrounds only.</div>
-          <div class="lbl">Swap region</div>
-          <div class="seg" id="seg-region"></div>
-          <div class="row2" id="region-split-row" hidden><label class="num">Waist line, % of frame height from the top <input type="number" id="swap_below" min="30" max="95" step="5" value="60"></label></div>
-          <div class="hint" id="region-hint">Whole body: everything about the person is regenerated from the reference. Upper body only: head and torso are swapped, the video's real jeans, shoes and floor stay as filmed.</div>
+          <div class="lbl">Keep from the video <small>pasted back after the render</small></div>
+          <label class="toggle"><input type="checkbox" id="keep_below_on"><span class="sw"></span>Everything below a line</label>
+          <div class="row2" id="keep-below-row" hidden><label class="num">Line, % of frame height from the top <input type="number" id="keep_below" min="30" max="95" step="5" value="60"></label></div>
+          <input class="field" id="keep_parts" placeholder="Garments to keep, e.g. jeans, shirt (optional)">
+          <div class="hint">The whole person is generated from the reference, then the video's own pixels are pasted back over these regions, so real jeans or a real top stay exactly as filmed. Body shape in kept regions follows the dancer.</div>
         </div>
       </section>
 
@@ -203,6 +204,6 @@
 </aside>
 
 <div class="toast" id="toast"></div>
-<script src="/static/app.js?v=15"></script>
+<script src="/static/app.js?v=16"></script>
 </body>
 </html>
