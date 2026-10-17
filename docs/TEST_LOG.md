@@ -88,7 +88,7 @@ Conclusions: the three research fixes hold on a real render (identity guard, bla
 |---|---|---|
 | 20261017-143420-1b43 | whole body (queued by mistake, useful baseline) | same as v3 standard: clean identity, invented jeans |
 | 20261017-143646-99e3 | face, hair, skin only (head/hair/arm/hand SAM tracks, rest of the person marked environment) | FAILED as a concept: identity transferred (face, hair, bracelet) but the un-swapped body was regenerated, not kept: ripped shorts instead of the jeans and an invented black floral cape behind her. SCAIL-2 regenerates "environment" from context rather than copying pixels, and it was trained on whole-person masks. Option removed from the app; builder keeps identity_only for research |
-| 20261017-144030-f899 | upper body, waist line 60 % | rendered after the pod's watchdog window; the result is on the volume and has not been inspected yet |
+| 20261017-144030-f899 | upper body, waist line 60 % (pose mask painted white below the line) | FAILED the same way: the jeans were repainted in a lighter wash and a white patterned shawl was invented behind her. Pulled from the volume over the S3 API with no pod running (first use of the serverless storage path). Both region options replaced by compositing (keep_below / keep_parts) |
 
 Lesson: with SCAIL-2, keeping real pixels of the person (outfit, jeans) is not a mask setting; it needs compositing the video back over the result after the fact (a planned post step: SAM mask of the kept region, feathered blend). Whole body at High with the extra full-body view remains the production path.
 
