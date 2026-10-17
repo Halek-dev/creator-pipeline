@@ -41,6 +41,7 @@ class WebApiTests(unittest.TestCase):
             p.mkdir(parents=True)
         self.submitted = []
         S.RUNNER.submit = self.submitted.append  # never talk to ComfyUI
+        S._GPU["value"], S._GPU["at"] = (None, None), __import__("time").time() + 10**6  # no GPU lookup during tests
         self.client = TestClient(S.app)
         self.img = io.BytesIO()
         Image.new("RGB", (900, 1400), "gray").save(self.img, format="PNG")
@@ -50,6 +51,7 @@ class WebApiTests(unittest.TestCase):
 
     def tearDown(self):
         J.COMFY_INPUT, J.COMFY_OUTPUT, J.JOBS_DIR, S.UPLOADS, J.COMFY_API_KEY = self.saved
+        S._GPU["value"], S._GPU["at"] = (None, None), 0.0
         self.tmp.cleanup()
 
     def upload(self, name, data, kind):

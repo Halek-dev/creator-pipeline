@@ -88,6 +88,10 @@
     const needKey = state.engine === "seedance" && !state.boot.seedance_available;
     $("#seg-seedance-mode").hidden = state.engine !== "seedance";
     $("#views").hidden = state.engine !== "scail";
+    if (state.engine === "scail" && !$("#seg-region").children.length) {
+      state.region = state.region || "whole";
+      seg($("#seg-region"), [{ value: "whole", label: "Whole body" }, { value: "upper", label: "Upper body only" }], state.region, v => { state.region = v; $("#region-split-row").hidden = v !== "upper"; });
+    }
     if (state.engine === "seedance" && !$("#seg-seedance-mode").children.length) {
       state.seedanceMode = state.seedanceMode || "edit";
       seg($("#seg-seedance-mode"), Object.entries(state.boot.seedance_modes).map(([k, v]) => ({ value: k, label: v, title: v })), state.seedanceMode, v => { state.seedanceMode = v; estimate(); });
@@ -211,6 +215,7 @@
         seedance_mode: state.seedanceMode || "edit",
         extra_views: state.engine === "scail" && state.views ? ["view1", "view2"].map(k => state.views[k]).filter(Boolean) : [],
         allow_offload: $("#allow_offload").checked,
+        swap_below: state.engine === "scail" && state.region === "upper" ? (parseFloat($("#swap_below").value) || 60) / 100 : 1.0,
       });
       toast(`Queued. ${job.seeds} seed${job.seeds > 1 ? "s" : ""}, about ${Math.round(job.estimate_minutes)} minutes.`);
       state.jobs.unshift(job); job._new = true; renderGrid();
