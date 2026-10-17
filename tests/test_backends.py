@@ -147,7 +147,7 @@ class RunnerEndpointTests(unittest.TestCase):
                 self.assertEqual(done["runs"][0]["delay_seconds"], 60.0)
                 self.assertEqual(done["cost"]["actual_usd"], round(360 / 3600 * J.GPU_HOURLY_USD, 2))  # billed seconds, not wall clock
                 self.assertEqual(sorted(k for k in uploaded if "/input/" in k), ["creator-data/input/app_j_drive.mp4", "creator-data/input/app_j_ref.png"])
-            self.assertIn("creator-data/output/_jobs/20260101-000001-j/job.json", uploaded)  # record published for other app instances
+                self.assertIn("creator-data/output/_jobs/20260101-000001-j/job.json", uploaded)  # record published for other app instances
                 self.assertEqual(downloaded, ["creator-data/output/motion_swap/20260101-000001-j/s3_result_00001_.mp4"])
                 self.assertTrue(J.output_path("motion_swap/20260101-000001-j/s3_result_00001_.mp4").exists())
                 sent = api.jobs["rp-1"]
