@@ -70,3 +70,15 @@ Research report: docs/SCAIL2_BEST_PRACTICE.md (authors' issues, official templat
 
 From docs/GPU_CHOICE.md: the app now reads ComfyUI's GPU (name, VRAM) and refuses a tier the card cannot hold without offloading (Wan Fast/Standard 22 GiB, Wan High 46, SCAIL Fast/Standard 28, SCAIL High 40, Finish 20 once chunked), with an "Allow offloading" override; the GPU is recorded on every job. The Finish pass now splits the SeedVR2 latent into temporal chunks sized to free VRAM (SeedVR2TemporalChunk auto, 4-frame overlap, SeedVR2TemporalMerge), so 161- and 241-frame Finish renders no longer need an 80 GB card. Both graphs accepted by ComfyUI structurally; VRAM numbers are inferred until the next instrumented pod session logs nvidia-smi peaks.
 
+## 17 Oct 2026, SCAIL-2 v3 session (RTX PRO 4500 32 GB, 30 GB RAM, $0.73/h)
+
+Pod from deploy to READY in about 4 minutes (volume reused; only the 630 MB T2V LoRA downloaded). Same waist-up pair as the first session. GPU memory logged every 5 s (logs/vram.log).
+
+| Run | Settings | Time | Peak VRAM | Result |
+|---|---|---|---|---|
+| v3 standard (job 20261017-120319-4f3e) | SCAIL-2 Standard, 512x896, 8 steps, T2V LoRA 0.8, largest identity only, black cut-out, 1 segment | about 7 min incl. load | 27,052 MiB of 32,623 | Clean: no figurines, no rim, no stray cloth; face, hair, top, necklace stable; hands clean. Jeans still invented, less waxy than run 1 |
+| v3 high (job 20261017-122308-0c4e) | SCAIL-2 High, 704x1280, 10 steps, T2V LoRA 0.6, allow offloading, 1 segment | about 17 min | 30,226 MiB (100% util) | Denim weave, stitching and fades visible; rib knit on the top; skin pores; same identity and timing as Standard. Invented details (belt loops, pockets) drift slightly between frames |
+| v3 high full (job 20261017-124x, prompt a8b33ebb) | High, 3 segments (7.8 s), one extra full-body view | pending | pending | pending |
+
+Conclusions: the three research fixes hold on a real render (identity guard, black cut-out, T2V LoRA). The VRAM guard's 28 GiB minimum for SCAIL Standard matches the measured 26.4 GiB; High at 704p runs on 32 GB only with offloading (29.5 GiB peak, so a 48 GB card is the comfortable floor, as GPU_CHOICE.md inferred). High is worth its 2.5x time for the keeper render.
+
