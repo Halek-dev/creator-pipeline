@@ -25,8 +25,19 @@ BOOT_TIMEOUT = int(os.environ.get("COMFY_BOOT_TIMEOUT", "780"))   # under RunPod
 PROGRESS_EVERY = 30
 
 
+def comfy_log_tail(n=25):
+    try:
+        lines = Path("/tmp/comfy.log").read_text(encoding="utf-8", errors="replace").splitlines()
+        return "\n".join(lines[-n:])
+    except OSError:
+        return "(no ComfyUI log)"
+
+
 def wait_for_comfy(timeout=BOOT_TIMEOUT):
-    """ComfyUI imports every node pack on first start; poll as long as it is alive rather than a fixed 25 s."""
+    """ComfyUI imports every node pack on first start; poll as long as it is alive rather than a fixed 25 s.
+    Gives up early when the ComfyUI process has died, and reports its last log lines either way."""
+    if os.environ.get("WORKER_FATAL"):
+        raise RuntimeError(os.environ["WORKER_FATAL"])
     t0 = time.time()
     last = None
     while time.time() - t0 < timeout:
@@ -35,8 +46,10 @@ def wait_for_comfy(timeout=BOOT_TIMEOUT):
                 return json.loads(r.read())
         except Exception as e:
             last = e
+            if time.time() - t0 > 30 and "main.py" not in os.popen("ps -eo args").read():
+                raise RuntimeError(f"ComfyUI process exited during start-up. Last log lines:\n{comfy_log_tail()}")
             time.sleep(2)
-    raise RuntimeError(f"ComfyUI did not answer within {timeout}s: {last}")
+    raise RuntimeError(f"ComfyUI did not answer within {timeout}s: {last}. Last log lines:\n{comfy_log_tail()}")
 
 
 def handler(job):
