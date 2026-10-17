@@ -184,9 +184,12 @@ def build_scail_workflow(job, seed):
     tier = SCAIL_TIERS.get(job.get("tier"), SCAIL_TIERS["Standard"])
     w, h = tier["size"]
     width, height = (w, h) if _portrait(opts) else (h, w)
+    views = job["inputs"].get("extra_views", [])
     wf = S.build(segments=opts["chunks"], width=width, height=height, distill=True, replace=True, finishing=opts["finishing"],
-                 steps=tier["steps"], distill_strength=tier["strength"])
+                 steps=tier["steps"], distill_strength=tier["strength"], extra_views=len(views))
     set_input(wf, "Reference Image.image", job["inputs"].get("image_scail") or job["inputs"]["image"])
+    for k, name in enumerate(views, 1):
+        set_input(wf, f"Extra View {k}.image", name)
     set_input(wf, "Driving Video.file", job["inputs"]["video"])
     appearance = job["prompts"]["character"].split("Character appearance description: ", 1)[-1].split(". Background description:", 1)[0]
     background = job["prompts"]["character"].split("Background description: ", 1)[-1]
@@ -353,8 +356,21 @@ def seedance_cap(presets):
     return int(presets.get("seedance", {}).get("max_credits", 900))
 
 
+def fit_view(src, dst, size):
+    """Resize an extra view to the primary reference's padded size, keeping its aspect, letterboxed on black."""
+    from PIL import Image
+
+    with Image.open(src) as im:
+        im = im.convert("RGB")
+        scale = min(size[0] / im.width, size[1] / im.height)
+        inner = im.resize((max(1, round(im.width * scale)), max(1, round(im.height * scale))))
+        canvas = Image.new("RGB", size, "black")
+        canvas.paste(inner, ((size[0] - inner.width) // 2, (size[1] - inner.height) // 2))
+        canvas.save(dst)
+
+
 def new_job(image_path, video_path, character_name, appearance, scene_name, scene, tier_name, tier, seeds,
-            note="", chunks=1, finishing=False, info=None, engine="wan", seedance_mode="edit"):
+            note="", chunks=1, finishing=False, info=None, engine="wan", seedance_mode="edit", extra_views=()):
     presets = load_presets()
     info = info or {}
     seeds = max(1, min(MAX_SEEDS, int(seeds)))
@@ -393,8 +409,15 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
     if engine == "scail" and info.get("video_w") and info.get("video_h"):
         padded = f"app_{job_id}_ref_pad.png"
         try:
-            pad_reference(COMFY_INPUT / job["inputs"]["image"], COMFY_INPUT / padded, info["video_w"], info["video_h"])
+            size = pad_reference(COMFY_INPUT / job["inputs"]["image"], COMFY_INPUT / padded, info["video_w"], info["video_h"])
             job["inputs"]["image_scail"] = padded
+            names = []
+            for k, src in enumerate(list(extra_views)[:2], 1):
+                name = f"app_{job_id}_view{k}.png"
+                fit_view(src, COMFY_INPUT / name, size)
+                names.append(name)
+            if names:
+                job["inputs"]["extra_views"] = names
         except Exception as e:  # fall back to the raw reference; the node will centre-crop it
             job["pad_error"] = str(e)
     save_job(job)

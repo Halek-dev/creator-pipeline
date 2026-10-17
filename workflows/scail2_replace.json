@@ -206,20 +206,59 @@
     }
   },
   "18": {
+    "class_type": "MaskToImage",
+    "_meta": {
+      "title": "Reference Mask Image"
+    },
+    "inputs": {
+      "mask": [
+        "17",
+        0
+      ]
+    }
+  },
+  "19": {
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "Reference Mask First"
+    },
+    "inputs": {
+      "image": [
+        "18",
+        0
+      ],
+      "batch_index": 0,
+      "length": 1
+    }
+  },
+  "20": {
+    "class_type": "ImageToMask",
+    "_meta": {
+      "title": "Reference Mask Primary"
+    },
+    "inputs": {
+      "image": [
+        "19",
+        0
+      ],
+      "channel": "red"
+    }
+  },
+  "21": {
     "class_type": "GrowMask",
     "_meta": {
       "title": "Reference Mask Grow"
     },
     "inputs": {
       "mask": [
-        "17",
+        "20",
         0
       ],
       "expand": 2,
       "tapered_corners": true
     }
   },
-  "19": {
+  "22": {
     "class_type": "GetImageSize",
     "_meta": {
       "title": "Reference Size"
@@ -231,32 +270,32 @@
       ]
     }
   },
-  "20": {
+  "23": {
     "class_type": "EmptyImage",
     "_meta": {
       "title": "Black Canvas"
     },
     "inputs": {
       "width": [
-        "19",
+        "22",
         0
       ],
       "height": [
-        "19",
+        "22",
         1
       ],
       "batch_size": 1,
       "color": 0
     }
   },
-  "21": {
+  "24": {
     "class_type": "ImageCompositeMasked",
     "_meta": {
       "title": "Reference Cutout"
     },
     "inputs": {
       "destination": [
-        "20",
+        "23",
         0
       ],
       "source": [
@@ -267,12 +306,12 @@
       "y": 0,
       "resize_source": false,
       "mask": [
-        "18",
+        "21",
         0
       ]
     }
   },
-  "22": {
+  "25": {
     "class_type": "CLIPVisionEncode",
     "_meta": {
       "title": "Encode Reference"
@@ -283,13 +322,13 @@
         0
       ],
       "image": [
-        "21",
+        "24",
         0
       ],
       "crop": "none"
     }
   },
-  "23": {
+  "26": {
     "class_type": "ImageFromBatch",
     "_meta": {
       "title": "Segment Frames"
@@ -303,14 +342,14 @@
       "length": 81
     }
   },
-  "24": {
+  "27": {
     "class_type": "ResizeImageMaskNode",
     "_meta": {
       "title": "Resize Driving"
     },
     "inputs": {
       "input": [
-        "23",
+        "26",
         0
       ],
       "resize_type": "scale dimensions",
@@ -320,26 +359,26 @@
       "scale_method": "area"
     }
   },
-  "25": {
+  "28": {
     "class_type": "GetImageSize",
     "_meta": {
       "title": "Driving Size"
     },
     "inputs": {
       "image": [
-        "24",
+        "27",
         0
       ]
     }
   },
-  "26": {
+  "29": {
     "class_type": "SAM3_VideoTrack",
     "_meta": {
       "title": "SAM Driving Track"
     },
     "inputs": {
       "images": [
-        "24",
+        "27",
         0
       ],
       "model": [
@@ -355,14 +394,14 @@
       "detect_interval": 1
     }
   },
-  "27": {
+  "30": {
     "class_type": "SCAIL2ColoredMask",
     "_meta": {
       "title": "Masks"
     },
     "inputs": {
       "driving_track_data": [
-        "26",
+        "29",
         0
       ],
       "ref_track_data": [
@@ -374,7 +413,7 @@
       "replacement_mode": true
     }
   },
-  "28": {
+  "31": {
     "class_type": "WanSCAILToVideo",
     "_meta": {
       "title": "Animate"
@@ -393,15 +432,15 @@
         0
       ],
       "width": [
-        "25",
+        "28",
         0
       ],
       "height": [
-        "25",
+        "28",
         1
       ],
       "length": [
-        "25",
+        "28",
         2
       ],
       "batch_size": 1,
@@ -411,11 +450,11 @@
       "video_frame_offset": 0,
       "previous_frame_count": 5,
       "pose_video": [
-        "24",
+        "27",
         0
       ],
       "pose_video_mask": [
-        "27",
+        "30",
         0
       ],
       "replacement_mode": true,
@@ -424,16 +463,16 @@
         0
       ],
       "reference_image_mask": [
-        "27",
+        "30",
         1
       ],
       "clip_vision_output": [
-        "22",
+        "25",
         0
       ]
     }
   },
-  "29": {
+  "32": {
     "class_type": "BasicScheduler",
     "_meta": {
       "title": "Scheduler"
@@ -448,7 +487,7 @@
       "denoise": 1.0
     }
   },
-  "30": {
+  "33": {
     "class_type": "KSamplerSelect",
     "_meta": {
       "title": "Sampler Type"
@@ -457,7 +496,7 @@
       "sampler_name": "euler"
     }
   },
-  "31": {
+  "34": {
     "class_type": "SamplerCustom",
     "_meta": {
       "title": "Sampler"
@@ -471,35 +510,35 @@
       "noise_seed": 1,
       "cfg": 1.0,
       "positive": [
-        "28",
+        "31",
         0
       ],
       "negative": [
-        "28",
+        "31",
         1
       ],
       "sampler": [
-        "30",
+        "33",
         0
       ],
       "sigmas": [
-        "29",
+        "32",
         0
       ],
       "latent_image": [
-        "28",
+        "31",
         2
       ]
     }
   },
-  "32": {
+  "35": {
     "class_type": "VAEDecode",
     "_meta": {
       "title": "Decode"
     },
     "inputs": {
       "samples": [
-        "31",
+        "34",
         1
       ],
       "vae": [
@@ -508,28 +547,28 @@
       ]
     }
   },
-  "33": {
+  "36": {
     "class_type": "ImageFromBatch",
     "_meta": {
       "title": "Trim Tail"
     },
     "inputs": {
       "image": [
-        "32",
+        "35",
         0
       ],
       "batch_index": 0,
       "length": 81
     }
   },
-  "34": {
+  "37": {
     "class_type": "CreateVideo",
     "_meta": {
       "title": "Video"
     },
     "inputs": {
       "images": [
-        "33",
+        "36",
         0
       ],
       "fps": [
@@ -542,14 +581,14 @@
       ]
     }
   },
-  "35": {
+  "38": {
     "class_type": "SaveVideo",
     "_meta": {
       "title": "Save"
     },
     "inputs": {
       "video": [
-        "34",
+        "37",
         0
       ],
       "filename_prefix": "motion_swap/scail_result",
@@ -557,7 +596,7 @@
       "format.codec": "h264"
     }
   },
-  "36": {
+  "39": {
     "class_type": "ImageFromBatch",
     "_meta": {
       "title": "Driving Trimmed"
@@ -571,14 +610,14 @@
       "length": 81
     }
   },
-  "37": {
+  "40": {
     "class_type": "ResizeImageMaskNode",
     "_meta": {
       "title": "Resize Driving For Compare"
     },
     "inputs": {
       "input": [
-        "36",
+        "39",
         0
       ],
       "resize_type": "scale dimensions",
@@ -588,18 +627,18 @@
       "scale_method": "area"
     }
   },
-  "38": {
+  "41": {
     "class_type": "ImageStitch",
     "_meta": {
       "title": "Compare"
     },
     "inputs": {
       "image1": [
-        "33",
+        "36",
         0
       ],
       "image2": [
-        "37",
+        "40",
         0
       ],
       "direction": "right",
@@ -608,14 +647,14 @@
       "spacing_color": "white"
     }
   },
-  "39": {
+  "42": {
     "class_type": "CreateVideo",
     "_meta": {
       "title": "Compare Video"
     },
     "inputs": {
       "images": [
-        "38",
+        "41",
         0
       ],
       "fps": [
@@ -624,14 +663,14 @@
       ]
     }
   },
-  "40": {
+  "43": {
     "class_type": "SaveVideo",
     "_meta": {
       "title": "Save Compare"
     },
     "inputs": {
       "video": [
-        "39",
+        "42",
         0
       ],
       "filename_prefix": "motion_swap/scail_compare",

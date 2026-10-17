@@ -6,7 +6,7 @@
 <title>Creator Pipeline</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=7">
+<link rel="stylesheet" href="/static/app.css?v=8">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%234c8dff'/%3E%3Cpath d='M9 7l8 5-8 5z' fill='white'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -48,6 +48,14 @@
           </label>
         </div>
         <div class="check" id="check">Add an image and a video. The check runs by itself.</div>
+        <div class="views" id="views" hidden>
+          <div class="lbl">Extra views <small>same character, optional, up to 2</small></div>
+          <div class="views-row">
+            <label class="drop mini" for="file-view1"><input type="file" id="file-view1" accept="image/png,image/jpeg,image/webp" hidden><img id="view1-preview" alt="" hidden><span class="drop-text"><b>Full body</b>or back view</span><b class="drop-name" id="name-view1" hidden></b></label>
+            <label class="drop mini" for="file-view2"><input type="file" id="file-view2" accept="image/png,image/jpeg,image/webp" hidden><img id="view2-preview" alt="" hidden><span class="drop-text"><b>Close-up</b>face or outfit</span><b class="drop-name" id="name-view2" hidden></b></label>
+          </div>
+          <div class="hint">Photos of the same character give SCAIL-2 the parts the main photo does not show (legs, back, texture). Plain backgrounds only.</div>
+        </div>
       </section>
 
       <section class="sec">
@@ -190,6 +198,6 @@
 </aside>
 
 <div class="toast" id="toast"></div>
-<script src="/static/app.js?v=8"></script>
+<script src="/static/app.js?v=9"></script>
 </body>
 </html>

@@ -87,6 +87,7 @@
                 seedance: "ByteDance's model with sound, billed in Comfy credits. No GPU needed. Swap mode keeps the driving video's background and length; Fast uses the cheaper Draft model. Finish and the sliders do not apply." }[state.engine];
     const needKey = state.engine === "seedance" && !state.boot.seedance_available;
     $("#seg-seedance-mode").hidden = state.engine !== "seedance";
+    $("#views").hidden = state.engine !== "scail";
     if (state.engine === "seedance" && !$("#seg-seedance-mode").children.length) {
       state.seedanceMode = state.seedanceMode || "edit";
       seg($("#seg-seedance-mode"), Object.entries(state.boot.seedance_modes).map(([k, v]) => ({ value: k, label: v, title: v })), state.seedanceMode, v => { state.seedanceMode = v; estimate(); });
@@ -121,13 +122,17 @@
   }
   async function upload(file, kind) {
     const fd = new FormData(); fd.append("file", file); fd.append("kind", kind);
-    const nameEl = kind === "ref" ? $("#name-image") : $("#name-video");
+    const nameEl = kind === "ref" ? $("#name-image") : (kind === "drive" ? $("#name-video") : $("#name-" + kind));
     nameEl.hidden = false; nameEl.textContent = "Uploading " + file.name;
     try {
       const r = await api("/api/uploads", { method: "POST", body: fd });
       if (kind === "ref") {
         state.image = r.id; state.imageName = file.name;
         const img = $("#img-preview"); img.src = URL.createObjectURL(file); img.hidden = false; $("#drop-image").classList.add("filled");
+      } else if (kind === "view1" || kind === "view2") {
+        state.views = state.views || {}; state.views[kind] = r.id;
+        const img = $("#" + kind + "-preview"); img.src = URL.createObjectURL(file); img.hidden = false; img.closest(".drop").classList.add("filled");
+        nameEl.textContent = file.name; return;
       } else {
         state.video = r.id; state.videoName = file.name;
         const v = $("#vid-preview"); v.src = URL.createObjectURL(file); v.hidden = false; $("#drop-video").classList.add("filled");
@@ -200,6 +205,7 @@
         identity_hold: parseFloat($("#identity_hold").value) || 1, motion_looseness: parseFloat($("#motion_looseness").value) || 1,
         tier: state.tier, seeds: state.seeds, chunks: state.chunks, finishing: $("#finishing").checked, note: $("#note").value,
         seedance_mode: state.seedanceMode || "edit",
+        extra_views: state.engine === "scail" && state.views ? ["view1", "view2"].map(k => state.views[k]).filter(Boolean) : [],
       });
       toast(`Queued. ${job.seeds} seed${job.seeds > 1 ? "s" : ""}, about ${Math.round(job.estimate_minutes)} minutes.`);
       state.jobs.unshift(job); job._new = true; renderGrid();
@@ -383,6 +389,8 @@
   // ---------- wiring ----------
   wireDrop("#drop-image", "#file-image", "ref");
   wireDrop("#drop-video", "#file-video", "drive");
+  $("#file-view1").addEventListener("change", e => e.target.files[0] && upload(e.target.files[0], "view1"));
+  $("#file-view2").addEventListener("change", e => e.target.files[0] && upload(e.target.files[0], "view2"));
   $("#btn-render").addEventListener("click", render);
   $("#btn-describe").addEventListener("click", describe);
   $("#comfy-keyform").addEventListener("submit", e => connectKey(e, "#comfy-key", "comfy_api_key"));

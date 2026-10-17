@@ -44,6 +44,13 @@ class ScailBuildTests(unittest.TestCase):
         self.assertEqual(wf[t["Masks"]]["inputs"]["object_indices"], "0")
         self.assertEqual(wf[t["Masks"]]["inputs"]["sort_by"], "area")
         self.assertEqual(wf[t["SAM Driving Prompt"]]["inputs"]["text"], wf[t["SAM Reference Prompt"]]["inputs"]["text"])
+        wv = S.build(extra_views=2)
+        tv = S.by_title(wv)
+        self.assertTrue(links_ok(wv))
+        self.assertEqual(wv[tv["Animate"]]["inputs"]["reference_image"], [tv["Reference Batch 2"], 0])
+        self.assertEqual(wv[tv["SAM Reference Track"]]["inputs"]["images"], [tv["Reference Batch 2"], 0])
+        self.assertEqual(wv[tv["Masks"]]["inputs"]["object_indices"], "")  # all identities when extra views are present
+        self.assertEqual(wv[tv["Encode Reference"]]["inputs"]["image"], [tv["Reference Cutout"], 0])  # CLIP still sees only the primary cut-out
         self.assertEqual(wf[t["Scheduler"]]["inputs"]["steps"], 6)
         self.assertEqual(wf[t["Sampler"]]["inputs"]["cfg"], 1.0)
         self.assertEqual(wf[t["Decode"]]["inputs"]["samples"], [t["Sampler"], 1])  # denoised output, as in the template

@@ -61,6 +61,10 @@ button{font:inherit}
 .drop-text b{display:block;color:var(--fg);font-size:12.5px;margin-bottom:2px}
 .drop-name{position:absolute;left:8px;right:8px;bottom:8px;z-index:1;font-size:11px;color:var(--fg);background:rgba(0,0,0,.6);padding:3px 7px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-weight:500}
 .drop-name[hidden]{display:none}
+.views{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.views[hidden]{display:none}
+.views-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.drop.mini{aspect-ratio:4/3}
 .check{font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
 .check span{padding-left:14px;position:relative}
 .check span::before{content:"";position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--ok)}

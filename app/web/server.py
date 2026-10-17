@@ -375,6 +375,7 @@ class JobIn(BaseModel):
     finishing: bool = False
     note: str = ""
     seedance_mode: str = "edit"
+    extra_views: list[str] = []
 
 
 @app.post("/api/jobs")
@@ -405,7 +406,8 @@ def create_job(body: JobIn):
     chunks = min(max(1, body.chunks), max(allowed) if allowed else 1)
     scene = {"background": body.background, "motion": body.motion, "identity_hold": body.identity_hold, "motion_looseness": body.motion_looseness}
     job = J.new_job(str(image), str(video), body.character, body.appearance, body.scene, scene, body.tier, p["tiers"][body.tier], body.seeds, body.note,
-                    chunks=chunks, finishing=body.finishing, info=info, engine=engine, seedance_mode=body.seedance_mode)
+                    chunks=chunks, finishing=body.finishing, info=info, engine=engine, seedance_mode=body.seedance_mode,
+                    extra_views=[str(p) for p in (resolve_input(v) for v in body.extra_views[:2]) if p])
     RUNNER.submit(job["id"])
     return summary(job)
 

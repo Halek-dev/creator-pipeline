@@ -52,14 +52,18 @@ BLACK = 0x000000                 # the authors require the reference cut out ont
 
 
 def build(segments=1, width=512, height=896, distill=True, replace=True, finishing=False, clean_reference=True, steps=None, cfg=None, identities="0",
-          distill_lora=DISTILL_LORA, distill_strength=0.8):
+          distill_lora=DISTILL_LORA, distill_strength=0.8, extra_views=0):
     """identities: which tracked people to swap, by size ("0" = only the biggest person in the reference and in the
     video). The reference tracker also detects dolls, posters and figurines as "human"; with all identities enabled the
     model composites every one of them into the clip (seen with a bookshelf of figurines, 17 Oct 2026).
     clean_reference: cut the character out onto BLACK (hard SAM mask, slightly grown) for the CLIP vision encoder, as the
     authors require for replacement mode. The WanSCAILToVideo node already blacks out the reference outside the mask
     before the VAE; this does the same for CLIP vision, so the photo's background never reaches the model.
-    distill_lora / distill_strength: the LightX2V LoRA and its strength; lower strength with more steps buys texture."""
+    distill_lora / distill_strength: the LightX2V LoRA and its strength; lower strength with more steps buys texture.
+    extra_views: number of additional photos of the SAME character (full body, back view, close-up) batched behind the
+    primary reference; the node treats extra batch images as additional views. The app resizes them to the primary's
+    size first. With extra views, identities is widened to all objects, since the extra photo's person is a second
+    track object; use plain-background photos then."""
     width, height = snap32(width), snap32(height)
     wf = {}
     # models
@@ -83,11 +87,19 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
     ref = add(wf, "LoadImage", "Reference Image", {"image": "reference_streetwear_character.png"})
     vid = add(wf, "LoadVideo", "Driving Video", {"file": "street_dancer.mp4"})
     frames = add(wf, "GetVideoComponents", "Driving Frames", {"video": [vid, 0]})
-    ref_track = add(wf, "SAM3_VideoTrack", "SAM Reference Track", {"images": [ref, 0], "model": [sam, 0], "conditioning": [sam_ref_text, 0], "detection_threshold": 0.5, "max_objects": 4, "detect_interval": 1})
-    ref_in = [ref, 0]
+    ref_batch = [ref, 0]
+    for k in range(1, int(extra_views) + 1):
+        extra = add(wf, "LoadImage", f"Extra View {k}", {"image": f"extra_view_{k}.png"})
+        ref_batch = [add(wf, "ImageBatch", f"Reference Batch {k}", {"image1": ref_batch, "image2": [extra, 0]}), 0]
+    if extra_views:
+        identities = ""  # the extra view's person is another track object; keep them all
+    ref_track = add(wf, "SAM3_VideoTrack", "SAM Reference Track", {"images": ref_batch, "model": [sam, 0], "conditioning": [sam_ref_text, 0], "detection_threshold": 0.5, "max_objects": 4, "detect_interval": 1})
+    ref_in = ref_batch
     if clean_reference:
         ref_mask = add(wf, "SAM3_TrackToMask", "Reference Mask", {"track_data": [ref_track, 0], "object_indices": identities})
-        grown = add(wf, "GrowMask", "Reference Mask Grow", {"mask": [ref_mask, 0], "expand": 2, "tapered_corners": True})
+        first_mask = add(wf, "ImageFromBatch", "Reference Mask First", {"image": [add(wf, "MaskToImage", "Reference Mask Image", {"mask": [ref_mask, 0]}), 0], "batch_index": 0, "length": 1})
+        first_mask_m = add(wf, "ImageToMask", "Reference Mask Primary", {"image": [first_mask, 0], "channel": "red"})
+        grown = add(wf, "GrowMask", "Reference Mask Grow", {"mask": [first_mask_m, 0], "expand": 2, "tapered_corners": True})
         ref_size = add(wf, "GetImageSize", "Reference Size", {"image": [ref, 0]})
         canvas = add(wf, "EmptyImage", "Black Canvas", {"width": [ref_size, 0], "height": [ref_size, 1], "batch_size": 1, "color": BLACK})
         cut = add(wf, "ImageCompositeMasked", "Reference Cutout", {"destination": [canvas, 0], "source": [ref, 0], "x": 0, "y": 0, "resize_source": False, "mask": [grown, 0]})
