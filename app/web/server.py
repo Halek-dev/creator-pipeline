@@ -374,8 +374,9 @@ def estimate(engine: str = "wan", tier: str = "Standard", chunks: int = 1, finis
     check = vram_check(p, engine, tier, finishing)
     note = p["tiers"][tier].get("note", "")
     if engine == "scail":
-        note = ("SCAIL-2 High: no distill LoRA, 16 guided steps, about 5x the Standard time, less plastic skin and cloth."
-                if tier == "High" else "SCAIL-2 at 512×896 or 896×512 by video orientation, 6 steps. Identity hold does not apply.")
+        st = J.SCAIL_TIERS.get(tier, J.SCAIL_TIERS["Standard"])
+        note = (f"SCAIL-2 {tier}: {st['size'][0]}×{st['size'][1]} (or landscape), {st['steps']} steps, speed LoRA {st['strength']}. "
+                + ("About 3.5x the Standard time, more texture in skin and cloth. " if tier == "High" else "") + "Identity hold does not apply.")
     if check["vram_ok"] is False:
         note += (f" This GPU ({check['gpu_name']}, {check['gpu_vram_gib']:.0f} GiB) is below the {check['vram_needed_gib']} GiB this tier needs to run "
                  "without offloading: pick a lower tier, or allow offloading (much slower, may fail).")
