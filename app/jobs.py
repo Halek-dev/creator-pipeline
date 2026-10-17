@@ -26,6 +26,10 @@ import build_seedance as SD  # noqa: E402
 import build_workflows as B  # noqa: E402
 from comfy_client import ComfyError, collect_outputs, error_message, poll, queue_contains, queue_prompt, set_input  # noqa: E402
 
+sys.path.insert(0, str(ROOT / "app"))
+import storage as ST  # noqa: E402
+from backends import PodBackend, make_backend  # noqa: E402
+
 ENGINES = {
     "Wan Animate 2": "wan",                            # background and camera from the scene text (open model)
     "SCAIL-2 (keep the video's background)": "scail",  # character swapped into the original driving video (open model)
@@ -734,12 +738,17 @@ class Runner(threading.Thread):
     MAX_POLL_ERRORS = 90        # ~3 minutes of ComfyUI being unreachable before giving up on a run
     LOST_CHECK_EVERY = 15       # polls between "does ComfyUI still have this prompt?" checks
 
-    def __init__(self, server=SERVER):
+    def __init__(self, server=SERVER, backend=None):
         super().__init__(daemon=True)
         self.server = server
+        self.backend = backend or make_backend(server=server)
+        self.local = PodBackend(server)  # Seedance is an API call: it never goes to a GPU endpoint
         self.pending = queue.Queue()
         self.current = None
         self.last_error = None
+
+    def backend_for(self, job):
+        return self.local if job.get("engine") == "seedance" and self.backend.name == "endpoint" else self.backend
 
     def submit(self, job_id):
         self.pending.put(job_id)
@@ -761,32 +770,34 @@ class Runner(threading.Thread):
             finally:
                 self.current = None
 
-    def adopt(self, run):
-        """After an app restart a run may already be finished, or still rendering, in ComfyUI.
-        Returns (history entry or None, prompt_id or None): entry when finished, prompt_id when still in the
+    def adopt(self, run, backend=None):
+        """After an app restart a run may already be finished, or still rendering, on the backend.
+        Returns (history entry or None, handle or None): entry when finished, handle when still in the
         queue (the caller waits for it), (None, None) when it must be queued afresh."""
+        backend = backend or self.backend
         prompt_id = run.get("prompt_id")
         if not prompt_id:
             return None, None
         try:
-            entry = poll(self.server, prompt_id)
+            entry = backend.poll(prompt_id)
             if entry is not None:
                 return entry, prompt_id
-            if queue_contains(self.server, prompt_id):
+            if not backend.lost(prompt_id):
                 return None, prompt_id
         except ComfyError:
             pass
         return None, None
 
-    def wait(self, prompt_id):
-        """Poll until the prompt finishes. Tolerates ComfyUI being briefly unreachable; returns None when ComfyUI
-        no longer has the prompt at all (it was restarted or crashed), so the caller can queue it again."""
+    def wait(self, prompt_id, backend=None):
+        """Poll until the render finishes. Tolerates the backend being briefly unreachable; returns None when it
+        no longer knows the handle at all (ComfyUI restarted, endpoint job expired), so the caller can queue again."""
+        backend = backend or self.backend
         errors = polls = 0
         while True:
             time.sleep(self.POLL_SECONDS)
             polls += 1
             try:
-                entry = poll(self.server, prompt_id)
+                entry = backend.poll(prompt_id)
                 errors = 0
             except ComfyError:
                 errors += 1
@@ -797,10 +808,29 @@ class Runner(threading.Thread):
                 return entry
             if polls % self.LOST_CHECK_EVERY == 0:
                 try:
-                    if not queue_contains(self.server, prompt_id):
+                    if backend.lost(prompt_id):
                         return None
                 except ComfyError:
                     pass
+
+    def sync_inputs_up(self, job):
+        """Endpoint + S3 configured: the worker reads inputs from the volume, so put this job's files there first."""
+        if self.backend.name != "endpoint" or not ST.configured():
+            return
+        names = [job["inputs"].get("image"), job["inputs"].get("video"), job["inputs"].get("image_scail"), *job["inputs"].get("extra_views", [])]
+        for name in [n for n in names if n]:
+            key = ST.input_key(name)
+            if not ST.exists(key):
+                ST.upload(COMFY_INPUT / name, key)
+
+    def sync_outputs_down(self, rels):
+        """Endpoint + S3 configured: fetch the rendered files so the compare, sheets and downloads work locally."""
+        if self.backend.name != "endpoint" or not ST.configured():
+            return
+        for rel in rels:
+            local = output_path(rel)
+            if not local.exists():
+                ST.download(ST.output_key(rel), local)
 
     def queue_run(self, job, run, base, client_id):
         """Build and queue one seed. Returns the prompt_id, or None after recording the error on the run."""
@@ -811,9 +841,11 @@ class Runner(threading.Thread):
                 return None
             extra = {"api_key_comfy_org": COMFY_API_KEY}
         wf = build_workflow(base, job, run["seed"])
+        backend = self.backend_for(job)
+        per_seed = job.get("cost", {}).get("estimate_minutes", 10) * 60 / max(1, len(job.get("runs", [])))
         try:
-            prompt_id = queue_prompt(self.server, wf, client_id, extra)
-        except ComfyError as e:
+            prompt_id = backend.submit(wf, f"{job['id']}:{client_id}", extra, timeout_s=per_seed * 2)
+        except (ComfyError, ValueError) as e:
             run["status"], run["error"] = "error", str(e)
             return None
         run["queued_at"] = time.time()
@@ -831,10 +863,19 @@ class Runner(threading.Thread):
         base = json.loads(WORKFLOW.read_text(encoding="utf-8"))
         client_id = str(uuid.uuid4())
         t_job = time.time()
+        backend = self.backend_for(job)
+        job["backend"] = backend.name
+        if backend.name == "endpoint":
+            try:
+                self.sync_inputs_up(job)
+            except Exception as e:
+                job["status"], job["error"] = "error", f"Could not put the inputs on the volume: {e}"
+                save_job(job)
+                return
         for run in job["runs"]:
             if run["status"] == "done":  # already rendered before a restart
                 continue
-            entry, prompt_id = self.adopt(run)
+            entry, prompt_id = self.adopt(run, backend)
             if entry is None and prompt_id is None:
                 prompt_id = self.queue_run(job, run, base, client_id)
                 if prompt_id is None:
@@ -843,7 +884,7 @@ class Runner(threading.Thread):
             run["status"], run["prompt_id"] = "running", prompt_id
             save_job(job)
             if entry is None:
-                entry = self.wait(prompt_id)
+                entry = self.wait(prompt_id, backend)
                 if entry is None:  # ComfyUI lost it (restart/crash): queue it once more
                     run["requeued"] = run.get("requeued", 0) + 1
                     prompt_id = self.queue_run(job, run, base, client_id) if run["requeued"] <= 1 else None
@@ -854,15 +895,23 @@ class Runner(threading.Thread):
                         continue
                     run["prompt_id"] = prompt_id
                     save_job(job)
-                    entry = self.wait(prompt_id)
+                    entry = self.wait(prompt_id, backend)
                     if entry is None:
                         run["status"], run["error"] = "error", "ComfyUI lost this render twice."
                         save_job(job)
                         continue
             run["seconds"] = round(time.time() - run.get("queued_at", t_job), 1)
+            ep = entry.get("_endpoint") or {}
+            if ep.get("execution_ms") is not None:  # serverless: billed GPU seconds, with the cold start shown apart
+                run["execution_seconds"] = round(ep["execution_ms"] / 1000, 1)
+                run["delay_seconds"] = round((ep.get("delay_ms") or 0) / 1000, 1)
             if entry["status"].get("status_str") == "success":
                 run["status"] = "done"
                 run["outputs"] = collect_outputs(entry)
+                try:
+                    self.sync_outputs_down(run["outputs"])
+                except Exception as e:
+                    run["sync_error"] = f"Rendered on the volume but not fetched: {e}"
             else:
                 run["status"] = "error"
                 run["error"] = error_message(entry)
@@ -874,6 +923,7 @@ class Runner(threading.Thread):
         if job.get("engine") == "seedance":
             job["cost"]["actual_usd"] = job["cost"]["estimate_usd"]  # billed by Comfy credits, not GPU time
         else:
-            job["cost"]["actual_usd"] = round(sum(r.get("seconds") or 0 for r in job["runs"]) / 3600 * GPU_HOURLY_USD, 2)
+            billed = [r.get("execution_seconds") if r.get("execution_seconds") is not None else (r.get("seconds") or 0) for r in job["runs"]]
+            job["cost"]["actual_usd"] = round(sum(billed) / 3600 * GPU_HOURLY_USD, 2)
         job["status"] = "done" if all(r["status"] == "done" for r in job["runs"]) else ("error" if all(r["status"] == "error" for r in job["runs"]) else "partial")
         save_job(job)

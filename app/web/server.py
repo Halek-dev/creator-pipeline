@@ -156,10 +156,16 @@ def status_info():
             out["stops_in"] = wd["stops_in_minutes"]
     except Exception:
         pass
+    out["backend"] = RUNNER.backend.name
     if RUNNER.current:
         out.update(busy=True, text=f"Rendering {RUNNER.current}")
     elif out["pending"]:
         out.update(busy=True, text=f"{out['pending']} job(s) waiting")
+    elif RUNNER.backend.name == "endpoint":
+        h = RUNNER.backend.health() or {}
+        w, jq = h.get("workers", {}), h.get("jobs", {})
+        out["text"] = (f"Serverless: {w.get('running', 0)} worker(s) running, {jq.get('inQueue', 0)} queued" if h
+                       else "Serverless endpoint not reachable")
     elif out["stops_in"] is not None:
         out["text"] = f"Pod ready, stops in {out['stops_in']:.0f} min if idle"
     return out

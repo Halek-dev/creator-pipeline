@@ -1,0 +1,10 @@
+{
+  "input": {
+    "job_id": "worker-smoke",
+    "seed": 1,
+    "workflow": {
+      "1": {"class_type": "EmptyImage", "_meta": {"title": "Blank"}, "inputs": {"width": 64, "height": 64, "batch_size": 1, "color": 8421504}},
+      "2": {"class_type": "SaveImage", "_meta": {"title": "Save"}, "inputs": {"images": ["1", 0], "filename_prefix": "smoke/worker"}}
+    }
+  }
+}

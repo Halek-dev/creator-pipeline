@@ -388,13 +388,9 @@ class ReviewFixTests(unittest.TestCase):
                 raise J.ComfyError("connection refused")  # one transient error must not fail the run
             return None
 
-        old = J.poll, J.queue_contains
-        J.poll, J.queue_contains = fake_poll, lambda server, pid: False
-        try:
-            self.assertIsNone(r.wait("p1"))
-            self.assertGreaterEqual(calls["poll"], 2)
-        finally:
-            J.poll, J.queue_contains = old
+        r.backend.poll, r.backend.lost = lambda pid: fake_poll(None, pid), lambda pid: True
+        self.assertIsNone(r.wait("p1"))
+        self.assertGreaterEqual(calls["poll"], 2)
 
     def test_runner_wait_gives_up_after_many_errors(self):
         r = J.Runner(server="http://test")
@@ -403,13 +399,9 @@ class ReviewFixTests(unittest.TestCase):
         def fake_poll(server, pid):
             raise J.ComfyError("down")
 
-        old = J.poll
-        J.poll = fake_poll
-        try:
-            with self.assertRaises(J.ComfyError):
-                r.wait("p1")
-        finally:
-            J.poll = old
+        r.backend.poll = lambda pid: fake_poll(None, pid)
+        with self.assertRaises(J.ComfyError):
+            r.wait("p1")
 
 
 class VramGuardTests(unittest.TestCase):

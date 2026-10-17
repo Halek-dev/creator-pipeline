@@ -114,7 +114,8 @@ def collect_outputs(entry):
         for kind in ("images", "gifs", "videos"):
             for f in node_out.get(kind, []):
                 if f.get("type") == "output":
-                    files.append(str(Path(f.get("subfolder", "")) / f["filename"]))
+                    sub = str(f.get("subfolder", "")).replace("\\", "/").strip("/")
+                    files.append(f"{sub}/{f['filename']}" if sub else f["filename"])  # always forward slashes: these are ComfyUI paths, also used as S3 keys
     return files
 
 
