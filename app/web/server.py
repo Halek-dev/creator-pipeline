@@ -275,7 +275,8 @@ def details(job):
         runs.append({"seed": r["seed"], "status": r["status"], "seconds": r.get("seconds"), "error": r.get("error"), "outputs": outputs, "sheets": sheets,
                      "poster": out_url(r["poster"]) if r.get("poster") and Path(r["poster"]).exists() else None})
     d["runs"] = runs
-    d["inputs_urls"] = {k: f"/files/input/{v}" for k, v in job.get("inputs", {}).items() if (J.COMFY_INPUT / v).exists()}
+    d["inputs_urls"] = {k: f"/files/input/{v}" for k, v in job.get("inputs", {}).items() if isinstance(v, str) and (J.COMFY_INPUT / v).exists()}
+    d["inputs_urls"]["extra_views"] = [f"/files/input/{v}" for v in job.get("inputs", {}).get("extra_views", []) if (J.COMFY_INPUT / v).exists()]
     return d
 
 

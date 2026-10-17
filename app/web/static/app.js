@@ -159,6 +159,13 @@
     const v = $("#vid-preview"); v.src = job.inputs_urls.video || ""; v.hidden = !job.inputs_urls.video; $("#drop-video").classList.toggle("filled", !!job.inputs_urls.video);
     $("#name-image").hidden = false; $("#name-image").textContent = job.inputs.image;
     $("#name-video").hidden = false; $("#name-video").textContent = job.inputs.video;
+    // extra views come back by file name too; the slots show them and the next render reuses them
+    state.views = {};
+    (job.inputs.extra_views || []).forEach((name, i) => {
+      const kind = "view" + (i + 1); state.views[kind] = name;
+      const img = $("#" + kind + "-preview"); img.src = (job.inputs_urls.extra_views || [])[i] || ""; img.hidden = !img.src; img.closest(".drop").classList.add("filled");
+      $("#name-" + kind).hidden = false; $("#name-" + kind).textContent = name;
+    });
     preflight();
   }
 
@@ -377,6 +384,11 @@
     state.tier = j.tier; seg($("#seg-tier"), Object.keys(state.boot.tiers).map(t => ({ value: t, label: t, title: state.boot.tiers[t].note })), state.tier, v => { state.tier = v; estimate(); });
     state.seeds = Math.min(4, Math.max(1, j.seeds)); seg($("#seg-seeds"), [1, 2, 3, 4].map(n => ({ value: n, label: String(n) })), state.seeds, v => { state.seeds = v; estimate(); });
     state.chunks = j.chunks; $("#finishing").checked = !!j.finishing; $("#note").value = j.note || "";
+    if (j.engine === "scail") {
+      state.region = j.options.swap_region || (j.options.swap_below && j.options.swap_below < 1 ? "upper" : "whole");
+      if (j.options.swap_below && j.options.swap_below < 1) $("#swap_below").value = Math.round(j.options.swap_below * 100);
+      $("#seg-region").innerHTML = ""; engineHint(); $("#region-split-row").hidden = state.region !== "upper";
+    }
     await setInputsFromJob(j);
     toast("Settings and inputs loaded. Change what you want, then Render.");
   }
