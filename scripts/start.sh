@@ -19,7 +19,7 @@ mkdir -p "$LOGS" "$ROOT/bin"
 cd "$ROOT"
 
 stop_all() {
-    for name in comfy app tunnel app_tunnel watchdog; do
+    for name in comfy app tunnel app_tunnel watchdog vram; do
         if [ -f "$LOGS/$name.pid" ] && kill -0 "$(cat "$LOGS/$name.pid")" 2>/dev/null; then
             kill "$(cat "$LOGS/$name.pid")" && echo "stopped $name"
         fi
@@ -102,6 +102,14 @@ if [ "$IDLE_MINUTES" != "0" ]; then
     [ -n "${CREATOR_DATA:-}" ] && ACTION="terminate"
     nohup "$PY" tools/idle_watchdog.py --minutes "$IDLE_MINUTES" --port "$PORT" --action "$ACTION" > "$LOGS/watchdog.log" 2>&1 &
     echo $! > "$LOGS/watchdog.pid"
+fi
+
+# GPU memory log every 5 s (logs/vram.log), so sessions record real peaks per render
+if command -v nvidia-smi >/dev/null 2>&1; then
+    if [ -f "$LOGS/vram.pid" ] && kill -0 "$(cat "$LOGS/vram.pid")" 2>/dev/null; then :; else
+        nohup nvidia-smi --query-gpu=timestamp,memory.used,memory.total,utilization.gpu --format=csv,noheader -l 5 > "$LOGS/vram.log" 2>&1 &
+        echo $! > "$LOGS/vram.pid"
+    fi
 fi
 
 "$PY" tools/smoke_test.py --port "$PORT" || true
