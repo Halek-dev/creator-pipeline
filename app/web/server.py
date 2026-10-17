@@ -350,6 +350,36 @@ def connect_runpod(body: RunpodIn):
     return {"ok": True, "backend": "endpoint", "health": health, "volume_files": n}
 
 
+@app.get("/api/volume/ls")
+def volume_ls(prefix: str = "output/motion_swap"):
+    """Files on the network volume under creator-data/<prefix>, over the S3 API (needs the RunPod connection)."""
+    if not J.ST.configured():
+        raise HTTPException(400, "Connect serverless first (Costs page).")
+    rows = J.ST.listing(f"{J.ST.PREFIX}/{prefix.strip('/')}/")
+    return [{"path": k[len(J.ST.PREFIX) + 1:], "bytes": size, "modified": ts.isoformat() if ts else None} for k, size, ts in rows]
+
+
+class FetchIn(BaseModel):
+    rel: str  # path under creator-data/output, e.g. motion_swap/<job>/s1_compare_00001_.mp4
+
+
+@app.post("/api/volume/fetch")
+def volume_fetch(body: FetchIn):
+    """Copy one output file from the volume to the app's output folder and return its local URL."""
+    if not J.ST.configured():
+        raise HTTPException(400, "Connect serverless first (Costs page).")
+    rel = body.rel.strip("/")
+    if ".." in rel.split("/"):
+        raise HTTPException(400, "bad path")
+    local = J.output_path(rel)
+    if not local.exists():
+        try:
+            J.ST.download(J.ST.output_key(rel), local)
+        except Exception as e:
+            raise HTTPException(404, f"not on the volume: {str(e)[:200]}")
+    return {"url": out_url(local), "bytes": local.stat().st_size}
+
+
 @app.post("/api/runpod/disconnect")
 def disconnect_runpod():
     from backends import PodBackend
