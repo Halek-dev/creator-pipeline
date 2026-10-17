@@ -195,10 +195,44 @@ def out_url(path):
     return "/files/output/" + rel.as_posix()
 
 
+def local_job_file(job_id, stored_path, fetch=False):
+    """Sheets and posters are stored as absolute paths of the machine that made them (the pod). Resolve them to this
+    machine's job folder, fetching from the volume when asked and missing."""
+    if not stored_path:
+        return None
+    name = Path(stored_path).name
+    local = J.job_dir(job_id) / name
+    if local.exists():
+        return local
+    if Path(stored_path).exists():
+        return Path(stored_path)
+    if fetch and J.ST.configured():
+        try:
+            J.ST.download(J.ST.job_file_key(job_id, name), local)
+            return local
+        except Exception:
+            return None
+    return None
+
+
+def local_output(rel, fetch=False):
+    p = J.output_path(rel)
+    if p.exists():
+        return p
+    if fetch and J.ST.configured():
+        try:
+            J.ST.download(J.ST.output_key(rel), p)
+            return p
+        except Exception:
+            return None
+    return None
+
+
 def poster_url(job):
     for r in job.get("runs", []):
-        if r.get("poster") and Path(r["poster"]).exists():
-            return out_url(r["poster"])
+        p = local_job_file(job["id"], r.get("poster"))
+        if p:
+            return out_url(p)
     return None
 
 
@@ -249,6 +283,21 @@ def elapsed_minutes(job):
     return round((time.time() - current["queued_at"]) / 60)
 
 
+_POSTER_TRIED = set()
+
+
+def _poster_fetch(job):
+    """First time a job from the volume shows in the grid, pull its poster (about 100 KB); once per job per process."""
+    if job["id"] in _POSTER_TRIED or not J.ST.configured():
+        return None
+    _POSTER_TRIED.add(job["id"])
+    for r in job.get("runs", []):
+        p = local_job_file(job["id"], r.get("poster"), fetch=True)
+        if p:
+            return out_url(p)
+    return None
+
+
 def summary(job):
     opts = job.get("options", {})
     cost = job.get("cost", {})
@@ -260,7 +309,8 @@ def summary(job):
         "chunks": opts.get("chunks", 1), "finishing": bool(opts.get("finishing")), "seconds_out": output_seconds(job), "elapsed_min": elapsed_minutes(job),
         "seeds": len(job.get("runs", [])), "seeds_done": sum(1 for r in job.get("runs", []) if r["status"] == "done"),
         "estimate_usd": cost.get("estimate_usd"), "actual_usd": cost.get("actual_usd"), "estimate_minutes": cost.get("estimate_minutes"),
-        "poster": poster_url(job), "stage": stage, "fraction": frac, "note": job.get("note", ""), "error": job.get("error"),
+        "poster": poster_url(job) or _poster_fetch(job), "stage": stage, "fraction": frac, "note": job.get("note", ""), "error": job.get("error"),
+        "backend": job.get("backend"),
     }
 
 
@@ -273,13 +323,18 @@ def details(job):
     for r in job.get("runs", []):
         outputs = []
         for rel in r.get("outputs", []):
-            p = J.output_path(rel)
-            if p.exists():
+            p = local_output(rel, fetch=True)  # opening a card pulls its clips from the volume when they are not here
+            if p:
                 kind = "final" if "_final" in p.name else ("compare" if "compare" in p.name else "result")
                 outputs.append({"name": p.name, "url": out_url(p), "kind": kind, "bytes": p.stat().st_size})
-        sheets = [{"url": out_url(s), "kind": "faces" if "faces" in s else "frames"} for s in r.get("sheets", []) if Path(s).exists()]
+        sheets = []
+        for s in r.get("sheets", []):
+            p = local_job_file(job["id"], s, fetch=True)
+            if p:
+                sheets.append({"url": out_url(p), "kind": "faces" if "faces" in p.name else "frames"})
+        poster = local_job_file(job["id"], r.get("poster"), fetch=True)
         runs.append({"seed": r["seed"], "status": r["status"], "seconds": r.get("seconds"), "error": r.get("error"), "outputs": outputs, "sheets": sheets,
-                     "poster": out_url(r["poster"]) if r.get("poster") and Path(r["poster"]).exists() else None})
+                     "poster": out_url(poster) if poster else None})
     d["runs"] = runs
     d["inputs_urls"] = {k: f"/files/input/{v}" for k, v in job.get("inputs", {}).items() if isinstance(v, str) and (J.COMFY_INPUT / v).exists()}
     d["inputs_urls"]["extra_views"] = [f"/files/input/{v}" for v in job.get("inputs", {}).get("extra_views", []) if (J.COMFY_INPUT / v).exists()]
@@ -346,8 +401,19 @@ def connect_runpod(body: RunpodIn):
         raise HTTPException(400, f"The volume did not answer over S3: {str(e)[:200]}")
     RUNNER.backend = be
     J.GPU_HOURLY_USD = float(body.gpu_hourly_usd)
+    try:
+        synced = J.ST.sync_jobs(J.JOBS_DIR)
+    except Exception as e:
+        synced = f"sync failed: {str(e)[:120]}"
     _GPU["value"], _GPU["at"] = (f"serverless {vals['endpoint_id']}", 48.0), time.time() + 10**9  # the guard uses the endpoint's largest tier
-    return {"ok": True, "backend": "endpoint", "health": health, "volume_files": n}
+    return {"ok": True, "backend": "endpoint", "health": health, "volume_files": n, "synced_jobs": synced}
+
+
+@app.post("/api/volume/sync")
+def volume_sync():
+    if not J.ST.configured():
+        raise HTTPException(400, "Connect serverless first (Costs page).")
+    return {"synced_jobs": J.ST.sync_jobs(J.JOBS_DIR)}
 
 
 @app.get("/api/volume/ls")

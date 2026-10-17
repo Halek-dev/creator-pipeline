@@ -137,6 +137,7 @@
           <button class="on" data-f="all">All</button><button data-f="running">Rendering</button><button data-f="done">Done</button><button data-f="failed">Failed</button>
         </div>
         <input class="field search" id="search" placeholder="Search character, scene, note">
+        <button class="ghost" id="btn-sync" title="Pull job records from the network volume (serverless must be connected)">Refresh from volume</button>
       </div>
       <div class="grid" id="grid-all"></div>
       <div class="empty" id="empty-all" hidden>Nothing matches.</div>
@@ -221,6 +222,6 @@
 </aside>
 
 <div class="toast" id="toast"></div>
-<script src="/static/app.js?v=17"></script>
+<script src="/static/app.js?v=18"></script>
 </body>
 </html>

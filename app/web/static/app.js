@@ -396,7 +396,8 @@
       ["#rp-api", "#rp-s3key", "#rp-s3secret"].forEach(s => { $(s).value = ""; });
       const w = (r.health && r.health.workers) || {};
       $("#rp-status").textContent = "serverless endpoint connected";
-      $("#rp-result").textContent = `Connected. Workers running: ${w.running || 0}, idle: ${w.idle || 0}. Volume answered with ${r.volume_files} job record(s). Renders now go to the endpoint.`;
+      $("#rp-result").textContent = `Connected. Workers running: ${w.running || 0}, idle: ${w.idle || 0}. Volume answered; ${r.synced_jobs} job record(s) synced into the Library. Renders now go to the endpoint.`;
+      loadJobs();
       toast("Serverless connected.");
       poll();
     } catch (err) { $("#rp-result").textContent = err.message; }
@@ -448,6 +449,7 @@
   $("#search").addEventListener("input", e => { state.search = e.target.value.trim(); renderGrid(); });
   $("#batch-form").addEventListener("submit", submitBatch);
   $("#rp-form").addEventListener("submit", connectRunpod);
+  $("#btn-sync").addEventListener("click", async () => { try { const r = await post("/api/volume/sync", {}); toast(`${r.synced_jobs} job record(s) synced.`); loadJobs(); } catch (e) { toast(e.message, true); } });
   $("#rp-disconnect").addEventListener("click", disconnectRunpod);
   $("#batch-file").addEventListener("change", e => { const n = $("#batch-name"); n.hidden = !e.target.files[0]; n.textContent = e.target.files[0] ? e.target.files[0].name : ""; });
   $$("[data-view]").forEach(a => a.addEventListener("click", () => { /* hashchange handles it */ }));

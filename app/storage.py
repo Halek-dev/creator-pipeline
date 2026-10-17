@@ -71,6 +71,26 @@ def exists(key):
         return False
 
 
+def sync_jobs(jobs_dir):
+    """Copy every job.json on the volume into the local job store (new or changed ones only). Returns the count."""
+    jobs_dir = Path(jobs_dir)
+    n = 0
+    for key, size, _ in listing(f"{PREFIX}/output/_jobs/"):
+        if not key.endswith("/job.json"):
+            continue
+        job_id = key.rsplit("/", 2)[-2]
+        local = jobs_dir / job_id / "job.json"
+        if local.exists() and local.stat().st_size == size:
+            continue
+        download(key, local)
+        n += 1
+    return n
+
+
+def job_file_key(job_id, name):
+    return f"{PREFIX}/output/_jobs/{job_id}/{name}"
+
+
 def input_key(name):
     return f"{PREFIX}/input/{name}"
 
