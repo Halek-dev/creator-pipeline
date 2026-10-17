@@ -27,7 +27,7 @@ import describe as D  # noqa: E402
 import jobs as J  # noqa: E402
 
 STATIC = HERE / "static"
-UPLOADS = J.ROOT / "uploads"  # files land here from the browser, then new_job copies them into ComfyUI/input
+UPLOADS = (J.DATA / "uploads") if J.DATA else J.ROOT / "uploads"  # browser uploads; new_job copies them into the input folder
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 MAX_UPLOAD = 600 * 1024 * 1024
 
@@ -41,13 +41,12 @@ SESSION_SECRET = secrets.token_hex(32)  # new on every app start: a restart logs
 COOKIE = "cp_session"
 
 LOGIN_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Creator Pipeline</title><style>
-body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0e0f12;color:#f2f3f5;font:14px/1.5 "Manrope",ui-sans-serif,system-ui,sans-serif}
-form{width:min(360px,90vw);background:#15171b;border:1px solid #2a2e36;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:12px}
-h1{font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:10px}h1 i{width:22px;height:22px;border-radius:6px;background:#4c8dff;display:inline-block}
-input{background:#1c1f25;border:1px solid #2a2e36;border-radius:8px;padding:10px 12px;color:#f2f3f5;font:inherit}input:focus{border-color:#4c8dff;outline:none}
-button{border:0;border-radius:9px;background:#4c8dff;color:#fff;font:inherit;font-weight:800;padding:11px;cursor:pointer}
-p{margin:0;color:#9aa0aa;font-size:12.5px}.bad{color:#f06565}
+<title>Creator Pipeline</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"><style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0a0a0a;color:#fafafa;font:14px/1.5 Inter,ui-sans-serif,system-ui,sans-serif}
+form{width:min(340px,90vw);background:#111;border:1px solid #262626;border-radius:12px;padding:28px;display:flex;flex-direction:column;gap:12px}
+h1{font-size:15px;font-weight:600;margin:0 0 6px;display:flex;align-items:center;gap:10px;letter-spacing:-.01em}h1 i{width:20px;height:20px;border-radius:6px;background:#fafafa;display:inline-block}
+p{margin:0;color:#a3a3a3;font-size:13px}input{background:#171717;border:1px solid #262626;border-radius:8px;padding:10px 12px;color:#fafafa;font:inherit}input:focus{border-color:#737373;outline:none}
+button{border:0;border-radius:8px;background:#fafafa;color:#0a0a0a;font:inherit;font-weight:600;padding:10px;cursor:pointer}button:hover{background:#e5e5e5}.bad{color:#f87171;font-size:13px;margin:0}
 </style></head><body><form method="post" action="/login"><h1><i></i>Creator Pipeline</h1>
 <p>Team password</p><input type="password" name="password" autofocus autocomplete="current-password">
 <button type="submit">Open the app</button>{msg}</form></body></html>"""
@@ -76,22 +75,37 @@ def _authed(request: Request):
 @app.middleware("http")
 async def auth(request: Request, call_next):
     """APP_PASSWORD set: a login page sets a session cookie (browsers), HTTP Basic also works (scripts)."""
-    if APP_PASSWORD and request.url.path not in ("/login",) and not _authed(request):
+    if APP_PASSWORD and request.url.path not in ("/login", "/healthz") and not _authed(request):
         if request.url.path.startswith(("/api/", "/files/")):
             return JSONResponse({"error": "Login required"}, status_code=401)
         return Response(LOGIN_PAGE.replace("{msg}", ""), media_type="text/html", status_code=401)
     return await call_next(request)
 
 
+_FAILED_LOGINS = {}  # client ip -> wrong attempts; each miss adds a second of delay (cheap brake on password guessing)
+
+
 @app.post("/login")
 async def login(request: Request):
+    import asyncio
+
     form = await request.form()
     pw = str(form.get("password", ""))
+    ip = request.client.host if request.client else "?"
     if APP_PASSWORD and secrets.compare_digest(pw, APP_PASSWORD):
+        _FAILED_LOGINS.pop(ip, None)
         resp = Response(status_code=303, headers={"Location": "/"})
         resp.set_cookie(COOKIE, _token(), httponly=True, samesite="lax", secure=request.url.scheme == "https", max_age=14 * 24 * 3600)
         return resp
+    _FAILED_LOGINS[ip] = _FAILED_LOGINS.get(ip, 0) + 1
+    await asyncio.sleep(min(8, _FAILED_LOGINS[ip]))
     return Response(LOGIN_PAGE.replace("{msg}", '<p class="bad">Wrong password.</p>'), media_type="text/html", status_code=401)
+
+
+@app.get("/healthz")
+def healthz():
+    """Unauthenticated liveness check for the hosting platform."""
+    return {"ok": True, "backend": RUNNER.backend.name}
 
 
 @app.get("/login")
@@ -101,7 +115,15 @@ def login_page():
 
 @app.on_event("startup")
 def startup():
-    UPLOADS.mkdir(exist_ok=True)
+    for d in (UPLOADS, J.COMFY_INPUT, J.JOBS_DIR, J.LOGS):
+        d.mkdir(parents=True, exist_ok=True)
+    if RUNNER.backend.name == "endpoint":  # configured from the environment (hosted app): no local ComfyUI to ask about VRAM
+        _GPU["value"], _GPU["at"] = (f"serverless {os.environ.get('RUNPOD_ENDPOINT_ID', '')}", float(os.environ.get("ENDPOINT_VRAM_GIB", "48"))), time.time() + 10**9
+        if J.ST.configured():
+            try:
+                print(f"synced {J.ST.sync_jobs(J.JOBS_DIR)} job record(s) from the volume", flush=True)
+            except Exception as e:
+                print(f"WARNING: could not sync job records from the volume: {e}", flush=True)
     if not RUNNER.is_alive():
         RUNNER.start()
     resumed = J.resume_pending(RUNNER.submit)
@@ -249,10 +271,17 @@ def progress(job):
         per_run = max(60.0, job.get("cost", {}).get("estimate_minutes", 5) * 60 / n)
         current = next((r for r in runs if r["status"] == "running"), None)
         elapsed = time.time() - (current.get("queued_at") or time.time()) if current else 0
+        k = min(done + failed + 1, n)
+        seed = f"Seed {k} of {n}" if n > 1 else "Rendering"
+        ep = getattr(RUNNER.backend, "progress", {}).get(current.get("prompt_id")) if current else None
+        if ep and ep["state"] == "IN_QUEUE":  # serverless: no worker yet, nothing billed
+            return f"Waiting for a GPU · {round(elapsed / 60)} min, not billed", 0.02
+        if ep and ep.get("started"):
+            elapsed = time.time() - ep["started"]
+            seed += " on the worker"
         part = min(0.95, elapsed / per_run)
-        k = done + failed + 1
         left = max(0, round((per_run * (n - done - failed) - elapsed) / 60))
-        return f"Seed {min(k, n)} of {n} · {round(elapsed / 60)} min in, about {left} left", min(0.98, (done + failed + part) / n)
+        return f"{seed} · {round(elapsed / 60)} min in, about {left} left", min(0.98, (done + failed + part) / n)
     if status == "done":
         return "Done", 1.0
     if status == "partial":
@@ -334,6 +363,7 @@ def details(job):
                 sheets.append({"url": out_url(p), "kind": "faces" if "faces" in p.name else "frames"})
         poster = local_job_file(job["id"], r.get("poster"), fetch=True)
         runs.append({"seed": r["seed"], "status": r["status"], "seconds": r.get("seconds"), "error": r.get("error"), "outputs": outputs, "sheets": sheets,
+                     "gpu": r.get("gpu"), "usd": r.get("usd"), "execution_seconds": r.get("execution_seconds"), "delay_seconds": r.get("delay_seconds"),
                      "poster": out_url(poster) if poster else None})
     d["runs"] = runs
     d["inputs_urls"] = {k: f"/files/input/{v}" for k, v in job.get("inputs", {}).items() if isinstance(v, str) and (J.COMFY_INPUT / v).exists()}
@@ -746,4 +776,6 @@ async def http_error(request, exc):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("APP_PORT", "7860")), log_level="warning")
+    # PORT is what Railway and similar hosts set; proxy headers so the session cookie learns it is behind https
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT") or os.environ.get("APP_PORT", "7860")), log_level="warning",
+                proxy_headers=True, forwarded_allow_ips="*")

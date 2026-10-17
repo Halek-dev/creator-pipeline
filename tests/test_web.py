@@ -67,6 +67,7 @@ class WebApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/status").json()["busy"], False)
         self.assertEqual(self.client.get("/").status_code, 200)
         self.assertEqual(self.client.get("/static/app.js").status_code, 200)
+        self.assertEqual(self.client.get("/healthz").json()["ok"], True)
 
     def test_upload_preflight_estimate_and_job(self):
         img = self.upload("ref.png", self.img.getvalue(), "ref")

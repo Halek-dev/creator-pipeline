@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Creator Pipeline</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=9">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%234c8dff'/%3E%3Cpath d='M9 7l8 5-8 5z' fill='white'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/static/app.css?v=10">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23fafafa'/%3E%3Cpath d='M9 7l8 5-8 5z' fill='%230a0a0a'/%3E%3C/svg%3E">
 </head>
 <body>
 <header class="top">
@@ -32,7 +32,7 @@
   <main class="view" id="view-create">
     <aside class="panel">
       <section class="sec">
-        <div class="lbl">Inputs <small>full body, one person</small></div>
+        <div class="lbl" data-n="01">Inputs <small>full body, one person</small></div>
         <div class="drops">
           <label class="drop" id="drop-image" for="file-image">
             <input type="file" id="file-image" accept="image/png,image/jpeg,image/webp" hidden>
@@ -49,13 +49,13 @@
         </div>
         <div class="check" id="check">Add an image and a video. The check runs by itself.</div>
         <div class="views" id="views" hidden>
-          <div class="lbl">Extra views <small>same character, optional, up to 2</small></div>
+          <div class="sub">Extra views <small>same character, optional, up to 2</small></div>
           <div class="views-row">
             <label class="drop mini" for="file-view1"><input type="file" id="file-view1" accept="image/png,image/jpeg,image/webp" hidden><img id="view1-preview" alt="" hidden><span class="drop-text"><b>Full body</b>or back view</span><b class="drop-name" id="name-view1" hidden></b></label>
             <label class="drop mini" for="file-view2"><input type="file" id="file-view2" accept="image/png,image/jpeg,image/webp" hidden><img id="view2-preview" alt="" hidden><span class="drop-text"><b>Close-up</b>face or outfit</span><b class="drop-name" id="name-view2" hidden></b></label>
           </div>
           <div class="hint">Photos of the same character give SCAIL-2 the parts the main photo does not show (legs, back, texture). Plain backgrounds only.</div>
-          <div class="lbl">Keep from the video <small>pasted back after the render</small></div>
+          <div class="sub">Keep from the video <small>pasted back after the render</small></div>
           <label class="toggle"><input type="checkbox" id="keep_below_on"><span class="sw"></span>Everything below a line</label>
           <div class="row2" id="keep-below-row" hidden><label class="num">Line, % of frame height from the top <input type="number" id="keep_below" min="30" max="95" step="5" value="60"></label></div>
           <input class="field" id="keep_parts" placeholder="Garments to keep, e.g. jeans, shirt (optional)">
@@ -64,7 +64,7 @@
       </section>
 
       <section class="sec">
-        <div class="lbl">Engine</div>
+        <div class="lbl" data-n="02">Engine</div>
         <div class="seg" id="seg-engine"></div>
         <div class="hint" id="engine-hint"></div>
         <div class="seg" id="seg-seedance-mode" hidden></div>
@@ -76,7 +76,7 @@
       </section>
 
       <section class="sec">
-        <div class="lbl">Look</div>
+        <div class="lbl" data-n="03">Look</div>
         <div class="row2">
           <select class="field" id="sel-character" aria-label="Character"></select>
           <select class="field" id="sel-scene" aria-label="Scene"></select>
@@ -95,7 +95,7 @@
       </section>
 
       <section class="sec">
-        <div class="lbl">Quality</div>
+        <div class="lbl" data-n="04">Quality</div>
         <div class="seg" id="seg-tier"></div>
         <div class="row2">
           <div class="seg" id="seg-length"><button disabled>Length after check</button></div>
@@ -121,26 +121,51 @@
       </section>
     </aside>
 
-    <section class="feed">
-      <div class="feedhead"><h4>Recent</h4><a href="#library" class="link">All clips</a></div>
-      <div class="grid" id="grid-recent"></div>
-      <div class="empty" id="empty-recent" hidden>No clips yet. Your first render will appear here.</div>
+    <section class="main">
+      <div class="stage" id="stage">
+        <div class="stage-view">
+          <video id="stage-video" controls playsinline preload="metadata" hidden></video>
+          <div class="stage-empty" id="stage-empty">
+            <b>Your renders show up here</b>
+            <p>Add a reference image and a driving video on the left, pick an engine and a quality, then Render. The newest clip plays here; earlier ones sit below.</p>
+            <div class="steps"><span data-n="01">Inputs</span><span data-n="02">Engine</span><span data-n="03">Look</span><span data-n="04">Quality</span></div>
+          </div>
+          <div class="stage-busy" id="stage-busy" hidden><small><span id="stage-stage"></span><span id="stage-pct"></span></small><div class="bar"><i id="stage-bar"></i></div></div>
+        </div>
+        <div class="stage-bar" id="stage-meta" hidden>
+          <div class="t"><b id="stage-title"></b><span id="stage-sub"></span></div>
+          <div class="stage-actions">
+            <span class="state" id="stage-state"></span>
+            <div class="seg small" id="stage-videos" hidden></div>
+            <a class="ghost" id="stage-download" download hidden>Download</a>
+            <button class="ghost" id="stage-reuse">Use these settings</button>
+            <button class="ghost" id="stage-details">Details</button>
+          </div>
+        </div>
+      </div>
+      <div class="feed">
+        <div class="feedhead"><h4>Recent</h4><a href="#library" class="link">All clips</a></div>
+        <div class="grid" id="grid-recent"></div>
+        <div class="empty" id="empty-recent" hidden>No clips yet. Your first render will appear here.</div>
+      </div>
     </section>
   </main>
 
   <!-- LIBRARY -->
   <main class="view wide" id="view-library" hidden>
-    <section class="feed">
-      <div class="feedhead">
-        <h4>Library</h4>
-        <div class="filters" id="filters">
-          <button class="on" data-f="all">All</button><button data-f="running">Rendering</button><button data-f="done">Done</button><button data-f="failed">Failed</button>
+    <section class="main">
+      <div class="feed">
+        <div class="feedhead">
+          <h2>Library</h2>
+          <div class="filters" id="filters">
+            <button class="on" data-f="all">All</button><button data-f="running">Rendering</button><button data-f="done">Done</button><button data-f="failed">Failed</button>
+          </div>
+          <input class="field search" id="search" placeholder="Search character, scene, note">
+          <button class="ghost" id="btn-sync" title="Pull job records from the network volume (serverless must be connected)">Refresh from volume</button>
         </div>
-        <input class="field search" id="search" placeholder="Search character, scene, note">
-        <button class="ghost" id="btn-sync" title="Pull job records from the network volume (serverless must be connected)">Refresh from volume</button>
+        <div class="grid" id="grid-all"></div>
+        <div class="empty" id="empty-all" hidden>Nothing matches.</div>
       </div>
-      <div class="grid" id="grid-all"></div>
-      <div class="empty" id="empty-all" hidden>Nothing matches.</div>
     </section>
   </main>
 
@@ -148,7 +173,7 @@
   <main class="view wide" id="view-batch" hidden>
     <section class="doc">
       <h2>Batch</h2>
-      <p>One CSV row becomes one job. Columns: <code>image,video,character,scene,seeds,passes,note</code> and optionally <code>engine</code> (wan, scail, seedance). <code>image</code> and <code>video</code> are file names already in the pod's <code>ComfyUI/input</code> folder (upload them through Jupyter on port 8888). Character and scene are preset names. <code>passes</code> is 1 to 3 and is capped by the video length.</p>
+      <p>One CSV row becomes one job. Columns: <code>image,video,character,scene,seeds,passes,note</code> and optionally <code>engine</code> (wan, scail, seedance). <code>image</code> and <code>video</code> are file names already in the input folder. Character and scene are preset names. <code>passes</code> is 1 to 3 and is capped by the video length.</p>
       <form id="batch-form" class="stack">
         <label class="drop file" for="batch-file"><input type="file" id="batch-file" accept=".csv" hidden><span class="drop-text"><b>CSV file</b>click to choose</span><b class="drop-name" id="batch-name" hidden></b></label>
         <div class="row3">
@@ -169,12 +194,12 @@
       <p id="costs-intro"></p>
       <div class="tablewrap"><table id="costs-table"><thead></thead><tbody></tbody></table></div>
       <h2 style="margin-top:32px">Serverless</h2>
-      <p>Renders on a RunPod endpoint that bills only while a clip renders. Paste the values from the RunPod console; they stay in this app's memory and are never saved. Status: <b id="rp-status">pod backend</b>.</p>
+      <p>Renders on a RunPod endpoint that bills only while a clip renders, at the price of the card the worker gets. Paste the values from the RunPod console; they stay in this app's memory and are never saved. Status: <b id="rp-status">pod backend</b>.</p>
       <form id="rp-form" class="stack">
         <div class="row3">
           <label>Endpoint id<input class="field" id="rp-endpoint" autocomplete="off" placeholder="mb0p16x9aea9n8"></label>
           <label>Volume id<input class="field" id="rp-volume" autocomplete="off"></label>
-          <label>GPU price, $ per hour<input class="field" id="rp-hourly" type="number" step="0.01" value="1.22"></label>
+          <label>Fallback GPU price, $ per hour<input class="field" id="rp-hourly" type="number" step="0.01" value="1.22"></label>
         </div>
         <div class="row3">
           <label>API key<input class="field" id="rp-api" type="password" autocomplete="off"></label>
@@ -199,6 +224,7 @@
       <p><b>Wan Animate 2</b> generates a new background from the scene text. <b>SCAIL-2</b> swaps the character into the original video and keeps its background, lighting and camera; describe the whole scene in the text (Describe from the driving video does this) and expect the frame to follow the video's orientation. <b>Seedance 2.5</b> is ByteDance's paid model run through ComfyUI: no GPU, the whole clip (4 to 30 s) with sound at 480p, 720p or 1080p by tier, billed in Comfy credits.</p>
       <h3>Seeds and tiers</h3><p>Two to four seeds give you choices; each clip shows a contact sheet and a face strip so you can pick in seconds. Fast is a preview. Standard is what we scored 23 of 25. High uses the full model at 720p and takes longer.</p>
       <h3>Finish</h3><p>A second pass that upscales 2× (about 1080p), doubles the frame rate, adds a light camera grain and keeps the driving video's sound. A few minutes per seed.</p>
+      <h3>Serverless</h3><p>On the serverless backend a render first waits for a free GPU (not billed), then renders on a worker (billed per second at that card's price). The card shows which phase it is in.</p>
       <h3>Rules</h3><p>Only characters we invented or people who signed consent. Label AI content. Vary content types. Never share this link outside the team.</p>
     </section>
   </main>
@@ -222,6 +248,6 @@
 </aside>
 
 <div class="toast" id="toast"></div>
-<script src="/static/app.js?v=18"></script>
+<script src="/static/app.js?v=19"></script>
 </body>
 </html>

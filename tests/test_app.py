@@ -471,5 +471,18 @@ class CompareClipTests(unittest.TestCase):
                 J.COMFY_INPUT, J.COMFY_OUTPUT, J.JOBS_DIR = old
 
 
+
+class RatesTest(unittest.TestCase):
+    def test_gpu_label_and_serverless_rate(self):
+        self.assertEqual(J.gpu_label("cuda:0 NVIDIA GeForce RTX 5090 : cudaMallocAsync"), "GeForce RTX 5090")
+        self.assertEqual(J.gpu_label("cuda:0 NVIDIA RTX PRO 4500 Blackwell : native"), "RTX PRO 4500 Blackwell")
+        self.assertEqual(J.gpu_label(None), "")
+        self.assertEqual(J.serverless_rate("GeForce RTX 5090"), 1.58)
+        self.assertEqual(J.serverless_rate("RTX PRO 6000 Blackwell"), 3.49)
+        self.assertEqual(J.serverless_rate("L40S"), 1.75)
+        self.assertEqual(J.serverless_rate("Mystery Card"), J.GPU_HOURLY_USD)
+        self.assertEqual(J.serverless_rate(None), J.GPU_HOURLY_USD)
+
+
 if __name__ == "__main__":
     unittest.main()

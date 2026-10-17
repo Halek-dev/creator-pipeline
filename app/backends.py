@@ -7,6 +7,7 @@ Both backends speak the same four verbs the Runner uses, with "handle" being a C
   name
 """
 import json
+import time
 import os
 import urllib.error
 import urllib.request
@@ -46,6 +47,7 @@ class EndpointBackend:
             raise ValueError("RUNPOD_ENDPOINT_ID and RUNPOD_API_KEY are needed for the endpoint backend")
         self.base = f"{api.rstrip('/')}/{endpoint_id}"
         self.api_key = api_key
+        self.progress = {}  # handle -> {"state": IN_QUEUE|IN_PROGRESS, "text": worker progress, "started": first seen running}
 
     def _call(self, method, path, body=None, timeout=60):
         data = json.dumps(body).encode() if body is not None else None
@@ -88,7 +90,11 @@ class EndpointBackend:
             return None
         st = r.get("status")
         if st in ("IN_QUEUE", "IN_PROGRESS"):
+            prev = self.progress.get(handle) or {}
+            started = prev.get("started") or (time.time() if st == "IN_PROGRESS" else None)
+            self.progress[handle] = {"state": st, "text": r.get("output") if isinstance(r.get("output"), str) else None, "started": started}
             return None
+        self.progress.pop(handle, None)
         out = r.get("output") if isinstance(r.get("output"), dict) else {}
         if st == "COMPLETED" and out.get("status", {}).get("status_str") == "success":
             return {**out, "_endpoint": {"delay_ms": r.get("delayTime"), "execution_ms": r.get("executionTime")}}

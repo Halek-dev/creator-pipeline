@@ -57,12 +57,17 @@ class EndpointBackendTests(unittest.TestCase):
     def test_poll_maps_states(self):
         h = self.be.submit({"1": {"class_type": "X", "_meta": {"title": "x"}, "inputs": {}}}, "j:c", None, 5000)
         self.assertIsNone(self.be.poll(h))                                   # IN_QUEUE
-        self.api.jobs[h]["status"] = "IN_PROGRESS"
+        self.assertEqual(self.be.progress[h]["state"], "IN_QUEUE")
+        self.api.jobs[h].update(status="IN_PROGRESS", output="rendering 2 min")
         self.assertIsNone(self.be.poll(h))
+        self.assertEqual(self.be.progress[h]["state"], "IN_PROGRESS")
+        self.assertEqual(self.be.progress[h]["text"], "rendering 2 min")
+        self.assertIsNotNone(self.be.progress[h]["started"])
         self.api.jobs[h].update(status="COMPLETED", executionTime=4200, delayTime=90000,
                                 output={"status": {"status_str": "success"}, "outputs": {"9": {"images": [{"filename": "s77_result_00001_.mp4", "subfolder": "motion_swap/j", "type": "output"}]}}})
         entry = self.be.poll(h)
         self.assertEqual(entry["status"]["status_str"], "success")
+        self.assertNotIn(h, self.be.progress)
         self.assertEqual(entry["_endpoint"]["execution_ms"], 4200)
         self.assertEqual(J.collect_outputs(entry), ["motion_swap/j/s77_result_00001_.mp4"])
         self.api.jobs[h].update(status="FAILED", output={"error": "boom"})

@@ -79,7 +79,7 @@ Put a password on the public link with `APP_PASSWORD` (the browser asks for it; 
 .venv/bin/python app/web/server.py     # run the app on its own (ComfyUI must be up); API at /api/*
 ```
 
-**Serverless.** The same renders can run on a RunPod Serverless endpoint built from [worker/](worker/) (pinned ComfyUI plus our nodes, one workflow per request, outputs on the network volume), with the app running on a laptop and talking to the volume over RunPod's S3 API. `RENDER_BACKEND=endpoint` switches the app; `tools/volume.py` lists and fetches clips from the volume without any pod. Setup: [docs/SERVERLESS_SETUP.md](docs/SERVERLESS_SETUP.md); background: [docs/SERVERLESS.md](docs/SERVERLESS.md).
+**Serverless.** The same renders can run on a RunPod Serverless endpoint built from [worker/](worker/) (pinned ComfyUI plus our nodes, one workflow per request, outputs on the network volume), with the app running on a laptop and talking to the volume over RunPod's S3 API. `RENDER_BACKEND=endpoint` switches the app; `tools/volume.py` lists and fetches clips from the volume without any pod. Setup: [docs/SERVERLESS_SETUP.md](docs/SERVERLESS_SETUP.md); background: [docs/SERVERLESS.md](docs/SERVERLESS.md). Hosting the app itself on Railway so the team opens one link: [docs/DEPLOY_RAILWAY.md](docs/DEPLOY_RAILWAY.md).
 
 ## Batch runner
 

@@ -8,6 +8,7 @@ import json
 import os
 import queue
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -38,15 +39,33 @@ ENGINES = {
 ENGINE_LABELS = {v: k for k, v in ENGINES.items()}
 COMFY_API_KEY = os.environ.get("COMFY_API_KEY", "")
 
-COMFY_INPUT = ROOT / "ComfyUI" / "input"
-COMFY_OUTPUT = ROOT / "ComfyUI" / "output"
+DATA = Path(os.environ["APP_DATA"]) if os.environ.get("APP_DATA") else None  # hosted app: one writable folder for inputs, outputs, logs
+COMFY_INPUT = DATA / "input" if DATA else ROOT / "ComfyUI" / "input"
+COMFY_OUTPUT = DATA / "output" if DATA else ROOT / "ComfyUI" / "output"
 JOBS_DIR = COMFY_OUTPUT / "_jobs"
 WORKFLOW = ROOT / "workflows" / "wan_animate2.json"
 VERSIONED_FILES = [WORKFLOW, ROOT / "tools" / "build_workflows.py", ROOT / "tools" / "build_scail.py", ROOT / "tools" / "build_seedance.py"]
 PRESETS_FILE = ROOT / "app" / "presets.yaml"
-LOGS = ROOT / "logs"
+LOGS = DATA / "logs" if DATA else ROOT / "logs"
 SERVER = os.environ.get("COMFY_SERVER", "http://127.0.0.1:8188")
 GPU_HOURLY_USD = float(os.environ.get("GPU_HOURLY_USD", "1.0"))
+
+
+def gpu_label(name):
+    """ComfyUI reports 'cuda:0 NVIDIA GeForce RTX 5090 : cudaMallocAsync'; keep 'GeForce RTX 5090'."""
+    s = (name or "").split(" : ")[0]
+    s = re.sub(r"^cuda:\d+\s*", "", s).replace("NVIDIA ", "").strip()
+    return s[:60]
+
+
+def serverless_rate(gpu_name):
+    """$ per hour for the card a serverless worker reported, from presets.yaml serverless_rates (RunPod list prices);
+    GPU_HOURLY_USD when the card is not listed."""
+    name = (gpu_name or "").lower()
+    for row in load_presets().get("serverless_rates", []):
+        if name and all(k in name for k in row["match"]):
+            return float(row["usd_per_hour"])
+    return GPU_HOURLY_USD
 MIN_FRAMES = B.CHUNK_FRAMES
 MAX_CHUNKS = 3
 MAX_SEEDS = 8
@@ -62,7 +81,7 @@ def workflow_version():
     try:
         sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True, timeout=5).stdout.strip() or "unknown"
     except Exception:
-        sha = "unknown"
+        sha = os.environ.get("RAILWAY_GIT_COMMIT_SHA", "")[:7] or "unknown"  # hosted build without a .git folder
     h = hashlib.sha256()
     for p in VERSIONED_FILES:
         h.update(p.read_bytes())
@@ -194,7 +213,7 @@ def gpu_info(server=SERVER, timeout=5):
         with urllib.request.urlopen(server + "/system_stats", timeout=timeout) as r:
             stats = json.loads(r.read())
         dev = stats["devices"][0]
-        return dev.get("name", "").split(":")[-1].strip()[:60], round(dev.get("vram_total", 0) / 2**30, 1)
+        return gpu_label(dev.get("name", "")), round(dev.get("vram_total", 0) / 2**30, 1)
     except Exception:
         return None, None
 
@@ -748,7 +767,11 @@ class Runner(threading.Thread):
         self.last_error = None
 
     def backend_for(self, job):
-        return self.local if job.get("engine") == "seedance" and self.backend.name == "endpoint" else self.backend
+        """Seedance is an API call, so it stays on the ComfyUI next to the app when there is one; a hosted app with no
+        local ComfyUI sends it through the endpoint like everything else."""
+        if job.get("engine") == "seedance" and self.backend.name == "endpoint" and gpu_info(self.server)[0] is not None:
+            return self.local
+        return self.backend
 
     def submit(self, job_id):
         self.pending.put(job_id)
@@ -905,6 +928,7 @@ class Runner(threading.Thread):
             if ep.get("execution_ms") is not None:  # serverless: billed GPU seconds, with the cold start shown apart
                 run["execution_seconds"] = round(ep["execution_ms"] / 1000, 1)
                 run["delay_seconds"] = round((ep.get("delay_ms") or 0) / 1000, 1)
+                run["gpu"] = gpu_label((entry.get("gpu") or {}).get("name"))  # the card RunPod actually gave us
             if entry["status"].get("status_str") == "success":
                 run["status"] = "done"
                 run["outputs"] = collect_outputs(entry)
@@ -923,7 +947,13 @@ class Runner(threading.Thread):
         if job.get("engine") == "seedance":
             job["cost"]["actual_usd"] = job["cost"]["estimate_usd"]  # billed by Comfy credits, not GPU time
         else:
-            billed = [r.get("execution_seconds") if r.get("execution_seconds") is not None else (r.get("seconds") or 0) for r in job["runs"]]
-            job["cost"]["actual_usd"] = round(sum(billed) / 3600 * GPU_HOURLY_USD, 2)
+            total = 0.0
+            for r in job["runs"]:
+                serverless = r.get("execution_seconds") is not None
+                secs = r["execution_seconds"] if serverless else (r.get("seconds") or 0)
+                rate = serverless_rate(r.get("gpu")) if serverless else GPU_HOURLY_USD
+                r["usd"] = round(secs / 3600 * rate, 3)
+                total += secs / 3600 * rate
+            job["cost"]["actual_usd"] = round(total, 2)
         job["status"] = "done" if all(r["status"] == "done" for r in job["runs"]) else ("error" if all(r["status"] == "error" for r in job["runs"]) else "partial")
         save_job(job)

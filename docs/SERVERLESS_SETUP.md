@@ -31,6 +31,8 @@ Pieces, all in this repo:
 
 ## Running the app on the laptop (or any machine)
 
+To host the app on Railway instead, so the team opens one link and nobody runs anything locally, follow [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md); the variables below are the same ones you paste into Railway.
+
 The app needs no GPU. Export the keys in the terminal, then start it. Seedance jobs still need a ComfyUI next to the app (the CPU one), the GPU engines go to the endpoint.
 
 ```bash

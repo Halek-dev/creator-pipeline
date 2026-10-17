@@ -9,7 +9,9 @@
     boot: null, engine: "wan", tier: "Standard", seeds: 2, chunks: 1, lengths: [], info: null,
     image: null, video: null, imageName: "", videoName: "", preflightOk: false, preflightTimer: null,
     jobs: [], filter: "all", search: "", open: null, view: "create", estTimer: null,
+    stage: null, stageKey: "", details: {},   // the clip playing in the main area and a cache of job details
   };
+  const STATUS = { queued: "Queued", running: "Rendering", done: "Done", partial: "Partial", error: "Failed" };
 
   // ---------- API ----------
   async function api(path, opts = {}) {
@@ -68,6 +70,7 @@
     $("#btn-describe").disabled = !b.describe_available;
     $("#btn-describe").title = b.describe_available ? "Fill the background text from the reference image or the driving video" : "Needs ANTHROPIC_API_KEY on the machine running the app";
     setStatus(b.status);
+    if (b.backend === "endpoint") $("#rp-status").textContent = "serverless endpoint connected";
     estimate();
     await loadJobs();
     show((location.hash || "#create").slice(1));
@@ -145,13 +148,12 @@
     } catch (e) { nameEl.textContent = "Upload failed"; toast(e.message, true); }
   }
   async function setInputsFromJob(job) {
-    // Reuse of an earlier job's inputs: they already live in ComfyUI/input, referenced by name.
+    // Reuse of an earlier job's inputs: they already live in the input folder, referenced by name.
     state.image = job.inputs.image; state.video = job.inputs.video; state.imageName = job.inputs.image; state.videoName = job.inputs.video;
     const img = $("#img-preview"); img.src = job.inputs_urls.image || ""; img.hidden = !job.inputs_urls.image; $("#drop-image").classList.toggle("filled", !!job.inputs_urls.image);
     const v = $("#vid-preview"); v.src = job.inputs_urls.video || ""; v.hidden = !job.inputs_urls.video; $("#drop-video").classList.toggle("filled", !!job.inputs_urls.video);
     $("#name-image").hidden = false; $("#name-image").textContent = job.inputs.image;
     $("#name-video").hidden = false; $("#name-video").textContent = job.inputs.video;
-    // extra views come back by file name too; the slots show them and the next render reuses them
     state.views = {};
     (job.inputs.extra_views || []).forEach((name, i) => {
       const kind = "view" + (i + 1); state.views[kind] = name;
@@ -223,7 +225,7 @@
         keep_parts: state.engine === "scail" ? $("#keep_parts").value.split(",").map(s => s.trim()).filter(Boolean) : [],
       });
       toast(`Queued. ${job.seeds} seed${job.seeds > 1 ? "s" : ""}, about ${Math.round(job.estimate_minutes)} minutes.`);
-      state.jobs.unshift(job); job._new = true; renderGrid();
+      state.jobs.unshift(job); job._new = true; state.stage = job.id; renderGrid();
     } catch (e) { $("#run-error").hidden = false; $("#run-error").textContent = e.message; }
     b.disabled = false; renderButton();
   }
@@ -248,7 +250,7 @@
       const [jobs, status] = await Promise.all([api("/api/jobs"), api("/api/status")]);
       const before = Object.fromEntries(state.jobs.map(j => [j.id, j.status]));
       state.jobs = jobs; setStatus(status); renderGrid();
-      jobs.forEach(j => { if (before[j.id] && before[j.id] !== j.status && (j.status === "done" || j.status === "partial" || j.status === "error")) toast(`${j.character} · ${j.scene}: ${j.status}`, j.status === "error"); });
+      jobs.forEach(j => { if (before[j.id] && before[j.id] !== j.status && (j.status === "done" || j.status === "partial" || j.status === "error")) toast(`${j.character} · ${j.scene}: ${STATUS[j.status] || j.status}`, j.status === "error"); });
       if (state.open && $("#drawer").classList.contains("show")) refreshDrawer();
     } catch (e) { const c = $("#status-chip"); c.textContent = "App unreachable"; c.className = "chip off"; }
   }
@@ -263,48 +265,86 @@
     }
     return true;
   }
-  function card(j) {
-    const c = el("button", "card" + (j._new ? " enter" : "")); c.type = "button"; c.dataset.id = j.id;
+  function metaLine(j) {
+    const price = j.status === "error" ? null : (j.actual_usd != null ? j.actual_usd : j.estimate_usd);
+    const len = j.seconds_out ? ` · ${j.seconds_out} s` : "";
+    return `${j.engine_label.split(" (")[0]} · ${j.tier}${len}${j.finishing ? " · Finish" : ""} · ${j.seeds_done}/${j.seeds} seed${j.seeds > 1 ? "s" : ""}${price != null ? " · $" + price.toFixed(2) : ""}`;
+  }
+  function card(j, onStage) {
+    const c = el("button", "card" + (j._new ? " enter" : "") + (onStage && j.id === state.stage ? " sel" : "")); c.type = "button"; c.dataset.id = j.id;
     const working = j.status === "queued" || j.status === "running";
     const thumb = el("div", "thumb" + (working ? " working" : ""));
-    const badge = el("span", "badge " + ({ done: "ok", error: "bad", partial: "warn" }[j.status] || ""), { queued: "Queued", running: "Rendering", done: "Done", partial: "Partial", error: "Failed" }[j.status] || j.status);
-    thumb.appendChild(badge);
+    if (j.status !== "done") thumb.appendChild(el("span", "badge " + ({ error: "bad", partial: "warn" }[j.status] || ""), STATUS[j.status] || j.status));
     if (j.poster) { const img = el("img"); img.alt = ""; img.loading = "lazy"; img.src = j.poster; img.onload = () => img.classList.add("ready"); thumb.appendChild(img); }
     if (working) {
-      const st = el("div", "stage");
-      st.innerHTML = `<small><span>${j.stage}</span><span>${Math.round(j.fraction * 100)}%</span></small><div class="bar"><i style="width:${Math.round(j.fraction * 100)}%"></i></div>`;
+      const st = el("div", "stage-in");
+      st.innerHTML = `<small><span>${esc(j.stage)}</span><span>${Math.round(j.fraction * 100)}%</span></small><div class="bar"><i style="width:${Math.round(j.fraction * 100)}%"></i></div>`;
       thumb.appendChild(st);
     } else if (j.poster) { const p = el("div", "play"); p.innerHTML = "<i></i>"; thumb.appendChild(p); }
     c.appendChild(thumb);
     const meta = el("div", "meta");
-    const price = j.status === "error" ? null : (j.actual_usd != null ? j.actual_usd : j.estimate_usd);
-    const len = j.seconds_out ? ` · ${j.seconds_out} s` : "";
-    meta.innerHTML = `<b>${esc(j.character)} · ${esc(j.scene)}</b><span>${esc(j.engine_label.split(" (")[0])} · ${esc(j.tier)}${len}${j.finishing ? " · Finish" : ""} · ${j.seeds_done}/${j.seeds}${price != null ? " · $" + price.toFixed(2) : ""}</span><span class="id">${j.id}</span>`;
+    meta.innerHTML = `<b>${esc(j.character)} · ${esc(j.scene)}</b><span>${esc(metaLine(j))}</span>`;
     c.appendChild(meta);
-    c.addEventListener("click", () => openJob(j.id));
+    c.addEventListener("click", () => { if (onStage) { state.stage = j.id; renderGrid(); } else openJob(j.id); });
     return c;
   }
   const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
   function renderGrid() {
     const recent = $("#grid-recent"), all = $("#grid-all");
     const list = state.jobs.filter(matches);
-    patch(recent, state.jobs.slice(0, 12)); $("#empty-recent").hidden = state.jobs.length > 0;
-    patch(all, list); $("#empty-all").hidden = list.length > 0;
+    if (!state.stage || !state.jobs.some(j => j.id === state.stage)) state.stage = state.jobs.length ? state.jobs[0].id : null;
+    patch(recent, state.jobs.slice(0, 18), true); $("#empty-recent").hidden = state.jobs.length > 0;
+    patch(all, list, false); $("#empty-all").hidden = list.length > 0;
     state.jobs.forEach(j => { delete j._new; });
+    renderStage();
   }
-  function patch(grid, jobs) {
+  function patch(grid, jobs, onStage) {
     // Rebuild only cards whose state changed, so finished thumbnails do not flicker on every poll.
     const have = Object.fromEntries($$(".card", grid).map(c => [c.dataset.id, c]));
     const want = new Set(jobs.map(j => j.id));
     Object.keys(have).forEach(id => { if (!want.has(id)) have[id].remove(); });
     let prev = null;
     jobs.forEach(j => {
-      const key = `${j.status}|${j.stage}|${Math.round(j.fraction * 100)}|${j.poster}|${j.seeds_done}|${j.actual_usd}`;
+      const key = `${j.status}|${j.stage}|${Math.round(j.fraction * 100)}|${j.poster}|${j.seeds_done}|${j.actual_usd}|${onStage && j.id === state.stage}`;
       let c = have[j.id];
-      if (!c || c.dataset.key !== key) { const n = card(j); n.dataset.key = key; if (c) c.replaceWith(n); else grid.insertBefore(n, prev ? prev.nextSibling : grid.firstChild); c = n; }
+      if (!c || c.dataset.key !== key) { const n = card(j, onStage); n.dataset.key = key; if (c) c.replaceWith(n); else grid.insertBefore(n, prev ? prev.nextSibling : grid.firstChild); c = n; }
       else if (c.previousSibling !== prev) grid.insertBefore(c, prev ? prev.nextSibling : grid.firstChild);
       prev = c;
     });
+  }
+
+  // ---------- stage: the clip in the main area ----------
+  function videosOf(j) {
+    const vids = [], many = j.runs.length > 1;
+    const tag = r => many ? ` · seed ${r.seed}` : "";
+    j.runs.forEach(r => r.outputs.forEach(o => { if (o.kind === "compare") vids.push({ label: "Compare" + tag(r), url: o.url, name: o.name }); }));
+    j.runs.forEach(r => r.outputs.forEach(o => { if (o.kind !== "compare") vids.push({ label: (o.kind === "final" ? "Final" : "Result") + tag(r), url: o.url, name: o.name }); }));
+    return vids;
+  }
+  async function renderStage() {
+    const j = state.jobs.find(x => x.id === state.stage);
+    $("#stage-empty").hidden = !!j;
+    $("#stage-meta").hidden = !j;
+    const v = $("#stage-video");
+    if (!j) { v.hidden = true; v.removeAttribute("src"); $("#stage-busy").hidden = true; state.stageKey = ""; return; }
+    const working = j.status === "queued" || j.status === "running";
+    $("#stage-title").textContent = `${j.character} · ${j.scene}`;
+    $("#stage-sub").textContent = `${metaLine(j)} · ${j.id}`;
+    const st = $("#stage-state"); st.textContent = STATUS[j.status] || j.status; st.className = "state " + j.status;
+    $("#stage-busy").hidden = !working;
+    if (working) { $("#stage-stage").textContent = j.stage; $("#stage-pct").textContent = Math.round(j.fraction * 100) + "%"; $("#stage-bar").style.width = Math.round(j.fraction * 100) + "%"; }
+    const key = `${j.id}|${j.status}|${j.seeds_done}`;
+    if (key === state.stageKey) return;
+    state.stageKey = key;
+    let d; try { d = await api("/api/jobs/" + j.id); state.details[j.id] = d; } catch (e) { return; }
+    if (state.stageKey !== key) return;  // the user moved on while we were loading
+    const vids = videosOf(d);
+    const vseg = $("#stage-videos");
+    seg(vseg, vids.map(x => ({ value: x.url, label: x.label })), vids.length ? vids[0].url : null, url => { v.src = url; v.load(); v.play().catch(() => {}); $("#stage-download").href = url; $("#stage-download").download = (vids.find(x => x.url === url) || {}).name || ""; });
+    vseg.hidden = vids.length < 2;
+    const dl = $("#stage-download");
+    if (vids.length) { v.hidden = false; v.poster = j.poster || ""; v.src = vids[0].url; v.load(); dl.hidden = false; dl.href = vids[0].url; dl.download = vids[0].name; }
+    else { v.hidden = !j.poster; v.removeAttribute("src"); v.poster = j.poster || ""; v.load(); dl.hidden = true; }
   }
 
   // ---------- drawer ----------
@@ -323,9 +363,10 @@
     state.open = null;
   }
   let drawerJob = null;
+  const money = x => "$" + x.toFixed(2);
   async function refreshDrawer(first = false) {
     let j; try { j = await api("/api/jobs/" + state.open); } catch (e) { toast(e.message, true); return; }
-    const changed = !drawerJob || drawerJob.status !== j.status || drawerJob.seeds_done !== j.seeds_done || first;
+    const changed = !drawerJob || drawerJob.id !== j.id || drawerJob.status !== j.status || drawerJob.seeds_done !== j.seeds_done || first;
     drawerJob = j;
     $("#d-title").textContent = `${j.character} · ${j.scene}`;
     $("#d-sub").textContent = `${j.engine_label} · ${j.tier} · ${j.seconds_out ? j.seconds_out + " s · " : ""}${j.engine === "seedance" ? "whole clip" : j.chunks + " pass" + (j.chunks > 1 ? "es" : "")}${j.finishing ? " · Finish" : ""} · ${j.id}`;
@@ -333,10 +374,7 @@
     $("#d-progress").hidden = !working;
     if (working) { $("#d-stage").textContent = j.stage; $("#d-pct").textContent = Math.round(j.fraction * 100) + "%"; $("#d-bar").style.width = Math.round(j.fraction * 100) + "%"; }
     if (!changed) return;
-    // videos: compare first, then result and final per seed
-    const vids = [];
-    j.runs.forEach(r => r.outputs.forEach(o => { if (o.kind === "compare") vids.push({ label: `Compare · seed ${r.seed}`, url: o.url }); }));
-    j.runs.forEach(r => r.outputs.forEach(o => { if (o.kind !== "compare") vids.push({ label: `${o.kind === "final" ? "Final" : "Result"} · seed ${r.seed}`, url: o.url }); }));
+    const vids = videosOf(j);
     const v = $("#d-video");
     seg($("#d-videos"), vids.map(x => ({ value: x.url, label: x.label + (j.seconds_out ? ` (${j.seconds_out} s)` : "") })), vids.length ? vids[0].url : null, url => { v.src = url; v.load(); v.play().catch(() => {}); });
     $("#d-videos").hidden = vids.length === 0;
@@ -344,7 +382,11 @@
     const sheets = $("#d-sheets"); sheets.innerHTML = "";
     j.runs.forEach(r => {
       const s = el("div", "seed");
-      const head = el("div", "seed-head"); head.innerHTML = `<b>seed ${r.seed}</b><span>${r.status}${r.seconds ? " · " + Math.round(r.seconds / 60) + " min" : ""}</span>`;
+      const bits = [STATUS[r.status] || r.status];
+      if (r.execution_seconds != null) { bits.push(`${Math.round(r.execution_seconds / 60)} min on ${r.gpu || "the worker"}`); if (r.delay_seconds) bits.push(`${Math.round(r.delay_seconds / 60)} min waiting`); }
+      else if (r.seconds) bits.push(Math.round(r.seconds / 60) + " min");
+      if (r.usd != null) bits.push(money(r.usd));
+      const head = el("div", "seed-head"); head.innerHTML = `<b>seed ${r.seed}</b><span>${esc(bits.join(" · "))}</span>`;
       s.appendChild(head);
       r.sheets.forEach(sh => { const img = el("img"); img.src = sh.url; img.alt = sh.kind; img.loading = "lazy"; s.appendChild(img); });
       if (r.error) s.appendChild(el("div", "err", r.error));
@@ -357,14 +399,15 @@
     }));
     if (!files.children.length) files.appendChild(el("div", "hint", working ? "Files appear here when the render finishes." : "No files."));
     const kv = $("#d-kv"); kv.innerHTML = "";
-    const rows = [["Status", j.status + (j.error ? ": " + j.error : "")], ["Character prompt", j.prompts.character], ["Motion prompt", j.prompts.motion], ["Render", j.settings_line],
-                  ["Cost", `estimated $${(j.estimate_usd || 0).toFixed(2)}` + (j.actual_usd != null ? `, actual $${j.actual_usd.toFixed(2)}` : "")],
+    const rows = [["Status", (STATUS[j.status] || j.status) + (j.error ? ": " + j.error : "")], ["Character prompt", j.prompts.character], ["Motion prompt", j.prompts.motion], ["Render", j.settings_line],
+                  ["Cost", `estimated ${money(j.estimate_usd || 0)}` + (j.actual_usd != null ? `, billed ${money(j.actual_usd)}` : "")],
+                  ["Backend", j.backend === "endpoint" ? "serverless endpoint" : "pod"],
                   ["Inputs", `${j.inputs.image}, ${j.inputs.video}`], ["Workflow", j.workflow_version], ["Created", (j.created || "").replace("T", " ")]];
     if (j.note) rows.splice(1, 0, ["Note", j.note]);
     rows.forEach(([k, val]) => { kv.appendChild(el("dt", "", k)); kv.appendChild(el("dd", k === "Workflow" ? "mono" : "", val)); });
   }
-  async function reuse() {
-    const j = drawerJob; if (!j) return;
+  async function reuse(j) {
+    if (!j) return;
     closeDrawer(); location.hash = "#create";
     state.engine = j.engine; seg($("#seg-engine"), state.boot.engines.map(e => ({ value: e.key, label: e.label.split(" (")[0], title: e.label })), state.engine, v => { state.engine = v; engineHint(); preflight(); estimate(); }); engineHint();
     if (state.boot.characters[j.character] !== undefined) $("#sel-character").value = j.character;
@@ -384,6 +427,12 @@
     }
     await setInputsFromJob(j);
     toast("Settings and inputs loaded. Change what you want, then Render.");
+    $(".panel").scrollTo({ top: 0, behavior: "smooth" });
+  }
+  async function reuseStage() {
+    let d = state.details[state.stage];
+    if (!d) { try { d = await api("/api/jobs/" + state.stage); } catch (e) { toast(e.message, true); return; } }
+    reuse(d);
   }
 
   async function connectRunpod(e) {
@@ -422,7 +471,7 @@
   async function loadCosts() {
     try {
       const c = await api("/api/costs");
-      $("#costs-intro").textContent = `Per month, from the job history. Render $ is the GPU time the clips took at $${c.gpu_hourly_usd.toFixed(2)} per hour. Pod $ (est.) adds each day's span between jobs plus the watchdog's ${Math.round(c.idle_minutes)} minute idle allowance and a few minutes of start-up. Seedance $ is Comfy credits.`;
+      $("#costs-intro").textContent = `Per month, from the job history. Render $ is the GPU time the clips took: serverless renders at the price of the card they got, pod renders at $${c.gpu_hourly_usd.toFixed(2)} per hour. Pod $ (est.) adds each day's span between jobs plus the watchdog's ${Math.round(c.idle_minutes)} minute idle allowance and a few minutes of start-up. Seedance $ is Comfy credits.`;
       const t = $("#costs-table");
       t.tHead.innerHTML = "<tr>" + c.headers.map(h => `<th>${esc(h)}</th>`).join("") + "</tr>";
       t.tBodies[0].innerHTML = c.rows.length ? c.rows.map(r => "<tr>" + r.map(x => `<td>${esc(x)}</td>`).join("") + "</tr>").join("") : `<tr><td colspan="${c.headers.length}">No finished jobs yet.</td></tr>`;
@@ -443,7 +492,9 @@
   $("#keep_below_on").addEventListener("change", e => { $("#keep-below-row").hidden = !e.target.checked; });
   $("#d-close").addEventListener("click", closeDrawer);
   $("#scrim").addEventListener("click", closeDrawer);
-  $("#d-reuse").addEventListener("click", reuse);
+  $("#d-reuse").addEventListener("click", () => reuse(drawerJob));
+  $("#stage-details").addEventListener("click", () => state.stage && openJob(state.stage));
+  $("#stage-reuse").addEventListener("click", reuseStage);
   document.addEventListener("keydown", e => { if (e.key === "Escape" && state.open) closeDrawer(); });
   $$("#filters button").forEach(b => b.addEventListener("click", () => { $$("#filters button").forEach(x => x.classList.remove("on")); b.classList.add("on"); state.filter = b.dataset.f; renderGrid(); }));
   $("#search").addEventListener("input", e => { state.search = e.target.value.trim(); renderGrid(); });
@@ -452,7 +503,6 @@
   $("#btn-sync").addEventListener("click", async () => { try { const r = await post("/api/volume/sync", {}); toast(`${r.synced_jobs} job record(s) synced.`); loadJobs(); } catch (e) { toast(e.message, true); } });
   $("#rp-disconnect").addEventListener("click", disconnectRunpod);
   $("#batch-file").addEventListener("change", e => { const n = $("#batch-name"); n.hidden = !e.target.files[0]; n.textContent = e.target.files[0] ? e.target.files[0].name : ""; });
-  $$("[data-view]").forEach(a => a.addEventListener("click", () => { /* hashchange handles it */ }));
 
   boot().catch(e => { toast("Could not load the app: " + e.message, true); $("#status-chip").textContent = "Error"; $("#status-chip").className = "chip off"; });
 })();
