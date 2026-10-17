@@ -502,7 +502,7 @@
   $("#search").addEventListener("input", e => { state.search = e.target.value.trim(); renderGrid(); });
   $("#batch-form").addEventListener("submit", submitBatch);
   $("#rp-form").addEventListener("submit", connectRunpod);
-  $("#btn-sync").addEventListener("click", async () => { try { const r = await post("/api/volume/sync", {}); toast(`${r.synced_jobs} job record(s) synced.`); loadJobs(); } catch (e) { toast(e.message, true); } });
+  $("#btn-sync").addEventListener("click", async () => { try { const r = await post("/api/volume/sync", {}); toast(`${r.synced_jobs} record(s) pulled from the volume, ${r.published_jobs} pushed to it.`); loadJobs(); } catch (e) { toast(e.message, true); } });
   $("#rp-disconnect").addEventListener("click", disconnectRunpod);
   $("#batch-file").addEventListener("change", e => { const n = $("#batch-name"); n.hidden = !e.target.files[0]; n.textContent = e.target.files[0] ? e.target.files[0].name : ""; });
 

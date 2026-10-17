@@ -443,7 +443,8 @@ def connect_runpod(body: RunpodIn):
 def volume_sync():
     if not J.ST.configured():
         raise HTTPException(400, "Connect serverless first (Costs page).")
-    return {"synced_jobs": J.ST.sync_jobs(J.JOBS_DIR)}
+    pushed = J.publish_missing_jobs()
+    return {"synced_jobs": J.ST.sync_jobs(J.JOBS_DIR), "published_jobs": pushed}
 
 
 @app.get("/api/volume/ls")

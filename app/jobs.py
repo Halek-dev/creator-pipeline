@@ -636,6 +636,43 @@ def load_job(job_id):
     return json.loads((job_dir(job_id) / "job.json").read_text(encoding="utf-8"))
 
 
+def publish_job(job):
+    """Volume configured: put the job record, posters, sheets and any locally made clip (the compare) on the volume,
+    so every app instance (laptop, hosted) shows the same Library. Files already there are not re-sent."""
+    if not ST.configured():
+        return 0
+    n = 0
+    ST.upload(job_dir(job["id"]) / "job.json", ST.job_file_key(job["id"], "job.json"))
+    n += 1
+    for r in job.get("runs", []):
+        for p in [*r.get("sheets", []), r.get("poster")]:
+            if p and Path(p).exists() and not ST.exists(ST.job_file_key(job["id"], Path(p).name)):
+                ST.upload(Path(p), ST.job_file_key(job["id"], Path(p).name))
+                n += 1
+        for rel in r.get("outputs", []):
+            p = output_path(rel)
+            if p.exists() and not ST.exists(ST.output_key(rel)):
+                ST.upload(p, ST.output_key(rel))
+                n += 1
+    return n
+
+
+def publish_missing_jobs():
+    """Every local job record that is not on the volume yet (made before publishing existed, or while offline)."""
+    if not ST.configured():
+        return 0
+    there = {k.rsplit("/", 2)[-2] for k, _, _ in ST.listing(f"{ST.PREFIX}/output/_jobs/") if k.endswith("/job.json")}
+    n = 0
+    for d in sorted(JOBS_DIR.iterdir() if JOBS_DIR.exists() else []):
+        if d.name not in there and (d / "job.json").exists():
+            try:
+                publish_job(load_job(d.name))
+                n += 1
+            except Exception:
+                pass
+    return n
+
+
 _JOB_CACHE = {}  # path -> (mtime_ns, job): the Jobs tab polls every few seconds; only re-read files that changed
 
 
@@ -880,6 +917,7 @@ class Runner(threading.Thread):
         job["status"] = "running"
         job["started"] = datetime.now().isoformat(timespec="seconds")
         save_job(job)
+        self.publish(job)
         LOGS.mkdir(exist_ok=True)
         (LOGS / "keepalive").touch()
 
@@ -957,3 +995,13 @@ class Runner(threading.Thread):
             job["cost"]["actual_usd"] = round(total, 2)
         job["status"] = "done" if all(r["status"] == "done" for r in job["runs"]) else ("error" if all(r["status"] == "error" for r in job["runs"]) else "partial")
         save_job(job)
+        self.publish(job)
+
+    def publish(self, job):
+        if self.backend.name != "endpoint":
+            return
+        try:
+            publish_job(job)
+        except Exception as e:
+            job["publish_error"] = f"Rendered, but the record could not be put on the volume: {e}"
+            save_job(job)
