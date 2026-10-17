@@ -90,7 +90,12 @@
     $("#views").hidden = state.engine !== "scail";
     if (state.engine === "scail" && !$("#seg-region").children.length) {
       state.region = state.region || "whole";
-      seg($("#seg-region"), [{ value: "whole", label: "Whole body" }, { value: "upper", label: "Upper body only" }], state.region, v => { state.region = v; $("#region-split-row").hidden = v !== "upper"; });
+      seg($("#seg-region"), [{ value: "whole", label: "Whole body" }, { value: "upper", label: "Upper body" }, { value: "identity", label: "Face, hair, skin" }], state.region, v => {
+        state.region = v; $("#region-split-row").hidden = v !== "upper";
+        $("#region-hint").textContent = v === "identity" ? "Experimental: the video's outfit and body stay as filmed; only head, hair, arms and hands are regenerated from the reference. Body shape follows the dancer."
+          : v === "upper" ? "Head and torso are swapped; the video's real jeans, shoes and floor stay as filmed below the waist line."
+          : "Everything about the person is regenerated from the reference.";
+      });
     }
     if (state.engine === "seedance" && !$("#seg-seedance-mode").children.length) {
       state.seedanceMode = state.seedanceMode || "edit";
@@ -216,6 +221,7 @@
         extra_views: state.engine === "scail" && state.views ? ["view1", "view2"].map(k => state.views[k]).filter(Boolean) : [],
         allow_offload: $("#allow_offload").checked,
         swap_below: state.engine === "scail" && state.region === "upper" ? (parseFloat($("#swap_below").value) || 60) / 100 : 1.0,
+        swap_region: state.engine === "scail" ? (state.region || "whole") : "whole",
       });
       toast(`Queued. ${job.seeds} seed${job.seeds > 1 ? "s" : ""}, about ${Math.round(job.estimate_minutes)} minutes.`);
       state.jobs.unshift(job); job._new = true; renderGrid();

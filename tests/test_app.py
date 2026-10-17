@@ -121,6 +121,11 @@ class ScailEngineTests(unittest.TestCase):
         self.assertEqual(up["Animate"]["pose_video_mask"][0], next(k for k, n in {nid: n for nid, n in J.build_workflow(None, job, 9).items()}.items() if n["_meta"]["title"] == "Pose Mask Upper"))
         self.assertIn("upper body only", J.render_settings(job))
         del job["options"]["swap_below"]
+        job["options"]["swap_region"] = "identity"
+        idn = {n["_meta"]["title"]: n["inputs"] for n in J.build_workflow(None, job, 9).values()}
+        self.assertIn("Pose Mask Identity", idn)
+        self.assertIn("face, hair and skin only", J.render_settings(job))
+        del job["options"]["swap_region"]
         for t in ("Animate", "Animate 2"):
             self.assertEqual(by_title[t]["pose_end"], 0.7, t)
             self.assertTrue(by_title[t]["replacement_mode"])

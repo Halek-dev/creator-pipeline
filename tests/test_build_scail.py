@@ -52,6 +52,12 @@ class ScailBuildTests(unittest.TestCase):
         self.assertEqual(wu[tu["Keep Below"]]["inputs"]["y"], int(896 * 0.6))
         self.assertEqual(wu[tu["White"]]["inputs"]["color"], 0xFFFFFF)
         self.assertEqual(wu[tu["Masks"]]["inputs"]["ref_track_data"], [tu["SAM Reference Track"], 0])  # reference identity untouched
+        wi = S.build(identity_only=True)
+        ti = S.by_title(wi)
+        self.assertTrue(links_ok(wi))
+        self.assertEqual(wi[ti["Animate"]]["inputs"]["pose_video_mask"], [ti["Pose Mask Identity"], 0])
+        self.assertEqual(wi[ti["Keep Outfit"]]["inputs"]["mask"], [ti["Identity Grow"], 0])
+        self.assertEqual({wi[ti[f"SAM {p} Prompt"]]["inputs"]["text"] for p in ("Head", "Hair", "Arm", "Hand")}, {"head", "hair", "arm", "hand"})
         wv = S.build(extra_views=2)
         tv = S.by_title(wv)
         self.assertTrue(links_ok(wv))

@@ -212,7 +212,8 @@ def build_scail_workflow(job, seed):
     views = job["inputs"].get("extra_views", [])
     swap_below = float(opts.get("swap_below", 1.0) or 1.0)
     wf = S.build(segments=opts["chunks"], width=width, height=height, distill=True, replace=True, finishing=opts["finishing"],
-                 steps=tier["steps"], distill_strength=tier["strength"], extra_views=len(views), swap_below=swap_below)
+                 steps=tier["steps"], distill_strength=tier["strength"], extra_views=len(views), swap_below=swap_below,
+                 identity_only=opts.get("swap_region") == "identity")
     set_input(wf, "Reference Image.image", job["inputs"].get("image_scail") or job["inputs"]["image"])
     for k, name in enumerate(views, 1):
         set_input(wf, f"Extra View {k}.image", name)
@@ -307,7 +308,8 @@ def render_settings(job):
         w, h = tier["size"]
         size = f"{w}×{h}" if _portrait(opts) else f"{h}×{w}"
         sb = float(opts.get("swap_below", 1.0) or 1.0)
-        region = "whole body" if sb >= 1.0 else f"upper body only, video kept below {int(sb * 100)}% of the frame"
+        region = ("face, hair and skin only (video outfit kept)" if opts.get("swap_region") == "identity"
+                  else "whole body" if sb >= 1.0 else f"upper body only, video kept below {int(sb * 100)}% of the frame")
         return (f"SCAIL-2 int8 + DPO, T2V distill {tier['strength']}, {tier['steps']} steps, {size}, {region}, reference padded and cut out on black, "
                 f"one identity (largest person), motion looseness {s['motion_looseness']} (Identity hold does not apply)")
     if engine == "seedance":
@@ -399,7 +401,7 @@ def fit_view(src, dst, size):
 
 def new_job(image_path, video_path, character_name, appearance, scene_name, scene, tier_name, tier, seeds,
             note="", chunks=1, finishing=False, info=None, engine="wan", seedance_mode="edit", extra_views=(), allow_offload=False, gpu=(None, None),
-            swap_below=1.0):
+            swap_below=1.0, swap_region="whole"):
     presets = load_presets()
     gpu_name, gpu_vram = gpu
     info = info or {}
@@ -428,7 +430,7 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
         "options": {"chunks": chunks, "finishing": bool(finishing), "frames": info.get("frames"), "fps": info.get("fps"),
                     "video_w": info.get("video_w"), "video_h": info.get("video_h"),
                     **({"seedance_mode": seedance_mode if seedance_mode in SEEDANCE_MODES else "edit"} if engine == "seedance" else {}),
-                    **({"swap_below": max(0.3, min(1.0, float(swap_below)))} if engine == "scail" else {})},
+                    **({"swap_below": max(0.3, min(1.0, float(swap_below))), "swap_region": swap_region if swap_region in ("whole", "upper", "identity") else "whole"} if engine == "scail" else {})},
         "settings": {"identity_hold": float(scene.get("identity_hold", 1.0)), "motion_looseness": float(scene.get("motion_looseness", 1.0))},
         "inputs": {"image": stage_input(image_path, job_id, "ref"), "video": stage_input(video_path, job_id, "drive")},
         "prompts": {"character": character_prompt, "motion": motion_prompt, "negative": presets["negative_prompt"]},

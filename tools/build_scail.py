@@ -52,7 +52,8 @@ BLACK = 0x000000                 # the authors require the reference cut out ont
 
 
 def build(segments=1, width=512, height=896, distill=True, replace=True, finishing=False, clean_reference=True, steps=None, cfg=None, identities="0",
-          distill_lora=DISTILL_LORA, distill_strength=0.8, extra_views=0, swap_below=1.0):
+          distill_lora=DISTILL_LORA, distill_strength=0.8, extra_views=0, swap_below=1.0, identity_only=False,
+          identity_parts=("head", "hair", "arm", "hand")):
     """identities: which tracked people to swap, by size ("0" = only the biggest person in the reference and in the
     video). The reference tracker also detects dolls, posters and figurines as "human"; with all identities enabled the
     model composites every one of them into the clip (seen with a bookshelf of figurines, 17 Oct 2026).
@@ -63,6 +64,10 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
     swap_below: fraction of the frame height (from the top) that is swapped; 1.0 = whole body. 0.6 keeps everything
     below 60% of the frame from the driving video (its real jeans, shoes, floor) by painting that part of the colored
     pose mask white (= environment in replacement mode), so only head and torso are regenerated.
+    identity_only: keep the driving video's clothing and body; regenerate only the parts that carry identity. SAM 3.1
+    tracks each of identity_parts in the driving video, their union (grown a little) is the swap area, and the rest
+    of the person is painted white in the pose mask (= environment, kept as filmed). Experimental: the model was
+    trained on whole-person masks; the official template has no such mode.
     extra_views: number of additional photos of the SAME character (full body, back view, close-up) batched behind the
     primary reference; the node treats extra batch images as additional views. The app resizes them to the primary's
     size first. With extra views, identities is widened to all objects, since the extra photo's person is a second
@@ -128,6 +133,17 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
             region = add(wf, "MaskComposite", f"Keep Below{sfx}", {"destination": [canvas_m, 0], "source": [keep, 0], "x": 0, "y": height - keep_h, "operation": "add"})
             white = add(wf, "EmptyImage", f"White{sfx}", {"width": width, "height": height, "batch_size": 1, "color": 0xFFFFFF})
             pose_mask = [add(wf, "ImageCompositeMasked", f"Pose Mask Upper{sfx}", {"destination": [masks, 0], "source": [white, 0], "x": 0, "y": 0, "resize_source": False, "mask": [region, 0]}), 0]
+        if identity_only:
+            union = None
+            for part in identity_parts:
+                ptxt = add(wf, "CLIPTextEncode", f"SAM {part.title()} Prompt{sfx}", {"clip": [sam, 1], "text": part})
+                ptrack = add(wf, "SAM3_VideoTrack", f"SAM {part.title()} Track{sfx}", {"images": [resized, 0], "model": [sam, 0], "conditioning": [ptxt, 0], "detection_threshold": 0.4, "max_objects": 4, "detect_interval": 1})
+                pmask = add(wf, "SAM3_TrackToMask", f"{part.title()} Mask{sfx}", {"track_data": [ptrack, 0], "object_indices": ""})
+                union = [pmask, 0] if union is None else [add(wf, "MaskComposite", f"Identity Union {part.title()}{sfx}", {"destination": union, "source": [pmask, 0], "x": 0, "y": 0, "operation": "or"}), 0]
+            grown = add(wf, "GrowMask", f"Identity Grow{sfx}", {"mask": union, "expand": 10, "tapered_corners": True})
+            keep_mask = add(wf, "InvertMask", f"Keep Outfit{sfx}", {"mask": [grown, 0]})
+            white_i = add(wf, "EmptyImage", f"White Identity{sfx}", {"width": width, "height": height, "batch_size": 1, "color": 0xFFFFFF})
+            pose_mask = [add(wf, "ImageCompositeMasked", f"Pose Mask Identity{sfx}", {"destination": pose_mask, "source": [white_i, 0], "x": 0, "y": 0, "resize_source": False, "mask": [keep_mask, 0]}), 0]
         animate_inputs = {
             "positive": [pos, 0], "negative": [neg, 0], "vae": [vae, 0],
             "width": [size, 0], "height": [size, 1], "length": [size, 2], "batch_size": 1,
