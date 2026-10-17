@@ -118,6 +118,8 @@ Effort: 2–3 days.
 
 **Front end rebuilt, 14 Oct 2026.** After a review of Krea, Kling, Runway, Luma, Viggle and others, the Gradio page was replaced by a hand-written front end (app/web: FastAPI JSON API + one HTML, CSS and JS file each): left rail, settings panel, results feed with in-card progress, detail drawer with compare player, contact sheets, downloads and settings reuse; graphite neutrals with one cobalt accent. API covered by tests/test_web.py. Same start script, same port, same job engine.
 
+**Serverless decision, 17 Oct 2026.** Serverless WILL be built after the SCAIL-2 verification; the team's reason is pay-per-compute with nothing billed while idle. Design and staged plan: docs/SERVERLESS.md. GPU choices for pods now and endpoints later: docs/GPU_CHOICE.md (RTX PRO 4500 for 512p tiers; 48 GB or 80 GB class for High and Finish; two endpoints, Standard and Large).
+
 Serverless (pay per clip, $0 idle): the same workflows run on RunPod Serverless with the ComfyUI worker image and the network volume mounted; the app would then call the `/run` endpoint instead of a pod's ComfyUI. Worth it only when the team renders a few clips a day on random days; at batch usage the pod is cheaper and simpler. Not built.
 
 ---
