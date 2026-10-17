@@ -67,8 +67,6 @@
     seg($("#seg-seeds"), [1, 2, 3, 4].map(n => ({ value: n, label: String(n), title: n + " seed" + (n > 1 ? "s" : "") })), state.seeds, v => { state.seeds = v; estimate(); });
     fill($("#batch-engine"), b.engines.map(e => e.key), b.engines.map(e => e.label));
     fill($("#batch-tier"), Object.keys(b.tiers));
-    $("#btn-describe").disabled = !b.describe_available;
-    $("#btn-describe").title = b.describe_available ? "Fill the background text from the reference image or the driving video" : "Needs ANTHROPIC_API_KEY on the machine running the app";
     setStatus(b.status);
     if (b.backend === "endpoint") $("#rp-status").textContent = "serverless endpoint connected";
     estimate();
@@ -96,10 +94,14 @@
       state.seedanceMode = state.seedanceMode || "edit";
       seg($("#seg-seedance-mode"), Object.entries(state.boot.seedance_modes).map(([k, v]) => ({ value: k, label: v, title: v })), state.seedanceMode, v => { state.seedanceMode = v; estimate(); });
     }
-    $("#engine-hint").textContent = h + (needKey ? " Connect your Comfy account below to use it." : "");
-    $("#comfy-keyform").hidden = !needKey;
-    $("#anthropic-keyform").hidden = state.boot.describe_available;
+    $("#engine-hint").textContent = h + (needKey ? " Add a Comfy API key on the Costs page to use it." : "");
+    $("#bg-hint").textContent = { wan: "Wan Animate 2 paints this background behind the character.",
+                                  scail: "SCAIL-2 keeps the video's own background; describe it anyway so the model knows the scene. Describe reads it from the driving video.",
+                                  seedance: "Seedance uses this with the character and motion text as its prompt." }[state.engine];
     $("#btn-describe").disabled = !state.boot.describe_available;
+    $("#btn-describe").title = state.boot.describe_available ? "Fill the background text from the reference image or the driving video" : "Describe needs an Anthropic API key: add it on the Costs page";
+    $("#anthropic-status").textContent = state.boot.describe_available ? "connected" : "not connected";
+    $("#comfy-status").textContent = state.boot.seedance_available ? "connected" : "not connected";
   }
   async function connectKey(e, field, which) {
     e.preventDefault();
@@ -107,7 +109,7 @@
     try {
       const r = await post("/api/keys", { [which]: value });
       state.boot.seedance_available = r.seedance_available; state.boot.describe_available = r.describe_available;
-      $(field).value = ""; engineHint(); renderButton();
+      $(field).value = ""; engineHint(); renderButton(); estimate();
       toast(which === "comfy_api_key" ? (r.seedance_available ? "Comfy account connected." : "Key was empty.") : (r.describe_available ? "Describe is ready." : "Key was empty."));
     } catch (err) { toast(err.message, true); }
   }

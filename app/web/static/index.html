@@ -6,7 +6,7 @@
 <title>Creator Pipeline</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=10">
+<link rel="stylesheet" href="/static/app.css?v=11">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23fafafa'/%3E%3Cpath d='M9 7l8 5-8 5z' fill='%230a0a0a'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -68,30 +68,23 @@
         <div class="seg" id="seg-engine"></div>
         <div class="hint" id="engine-hint"></div>
         <div class="seg" id="seg-seedance-mode" hidden></div>
-        <form class="keyform" id="comfy-keyform" hidden>
-          <input class="field" id="comfy-key" type="password" autocomplete="off" placeholder="Comfy API key from platform.comfy.org">
-          <button class="ghost" type="submit">Connect</button>
-          <div class="hint">Kept in memory on the machine running the app, never saved. Needed again after a restart.</div>
-        </form>
       </section>
 
       <section class="sec">
-        <div class="lbl" data-n="03">Look</div>
-        <div class="row2">
-          <select class="field" id="sel-character" aria-label="Character"></select>
-          <select class="field" id="sel-scene" aria-label="Scene"></select>
-        </div>
-        <textarea class="field ta" id="appearance" rows="3" placeholder="Looks only, no motion words"></textarea>
+        <div class="lbl" data-n="03">Look <small>the words the engine reads</small></div>
+        <div class="fh"><span>Character</span><select class="field sm" id="sel-character" aria-label="Character preset" title="A saved description; picking one fills the text below"></select></div>
+        <textarea class="field ta" id="appearance" rows="3" placeholder="Hair, outfit, build. Looks only, no motion words"></textarea>
+        <div class="hint">The face comes from the reference image; this text tells the model about hair, outfit and build it cannot see well.</div>
+        <div class="fh"><span>Background</span><select class="field sm" id="sel-scene" aria-label="Scene preset" title="A saved scene; picking one fills the background and motion text"></select></div>
         <div class="with-btn">
-          <textarea class="field ta" id="background" rows="3" placeholder="Background"></textarea>
+          <textarea class="field ta" id="background" rows="3" placeholder="Where the clip takes place"></textarea>
           <button class="ghost" id="btn-describe" title="Fill the background text from the reference image or the driving video">Describe</button>
         </div>
+        <div class="hint" id="bg-hint"></div>
         <div class="hint" id="describe-hint" hidden></div>
-        <form class="keyform" id="anthropic-keyform" hidden>
-          <input class="field" id="anthropic-key" type="password" autocomplete="off" placeholder="Anthropic API key, for Describe">
-          <button class="ghost" type="submit">Connect</button>
-        </form>
-        <input class="field" id="motion" placeholder="What the person is doing">
+        <div class="fh"><span>Motion</span></div>
+        <input class="field" id="motion" placeholder="What the person is doing, in a few words">
+        <div class="hint">The move itself is copied from the driving video; this only names it for the model.</div>
       </section>
 
       <section class="sec">
@@ -193,6 +186,18 @@
       <h2>Costs</h2>
       <p id="costs-intro"></p>
       <div class="tablewrap"><table id="costs-table"><thead></thead><tbody></tbody></table></div>
+      <h2 style="margin-top:32px">Keys</h2>
+      <p>Two optional services. Keys pasted here stay in this app's memory and are never saved; a hosted app can also get them from its environment variables.</p>
+      <form class="keyform" id="anthropic-keyform">
+        <input class="field" id="anthropic-key" type="password" autocomplete="off" placeholder="Anthropic API key">
+        <button class="ghost" type="submit">Connect</button>
+        <div class="hint">Describe: fills the background text from the reference image or the driving video with Claude. Status: <b id="anthropic-status">not connected</b>.</div>
+      </form>
+      <form class="keyform" id="comfy-keyform">
+        <input class="field" id="comfy-key" type="password" autocomplete="off" placeholder="Comfy API key from platform.comfy.org">
+        <button class="ghost" type="submit">Connect</button>
+        <div class="hint">Seedance 2.5: ByteDance's paid model, billed in Comfy credits. Status: <b id="comfy-status">not connected</b>.</div>
+      </form>
       <h2 style="margin-top:32px">Serverless</h2>
       <p>Renders on a RunPod endpoint that bills only while a clip renders, at the price of the card the worker gets. Paste the values from the RunPod console; they stay in this app's memory and are never saved. Status: <b id="rp-status">pod backend</b>.</p>
       <form id="rp-form" class="stack">
@@ -248,6 +253,6 @@
 </aside>
 
 <div class="toast" id="toast"></div>
-<script src="/static/app.js?v=19"></script>
+<script src="/static/app.js?v=20"></script>
 </body>
 </html>
