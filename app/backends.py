@@ -121,5 +121,9 @@ class EndpointBackend:
 def make_backend(kind=None, server=None):
     kind = (kind or os.environ.get("RENDER_BACKEND", "pod")).lower()
     if kind == "endpoint":
-        return EndpointBackend(os.environ.get("RUNPOD_ENDPOINT_ID", ""), os.environ.get("RUNPOD_API_KEY", ""))
+        eid, key = os.environ.get("RUNPOD_ENDPOINT_ID", ""), os.environ.get("RUNPOD_API_KEY", "")
+        if eid and key:
+            return EndpointBackend(eid, key)
+        print("WARNING: RENDER_BACKEND=endpoint but RUNPOD_ENDPOINT_ID or RUNPOD_API_KEY is not set; using the pod backend until they are "
+              "(set them in the host's variables, or connect serverless from the Costs page).", flush=True)
     return PodBackend(server or os.environ.get("COMFY_SERVER", "http://127.0.0.1:8188"))
