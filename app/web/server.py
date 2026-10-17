@@ -350,10 +350,11 @@ def estimate(engine: str = "wan", tier: str = "Standard", chunks: int = 1, finis
         if credits > cap:
             note = f"Over the cap: {credits:,} credits (about ${usd:.2f}) is above the limit of {cap:,}. Use a lower tier, fewer seeds or a shorter clip."
         return {"minutes": round(minutes, 1), "usd": usd, "credits": credits, "cap": cap, "over_cap": credits > cap, "currency": "credits", "note": note}
-    minutes = J.estimate_minutes(p["tiers"][tier], p["finishing"], chunks, finishing, seeds)
+    minutes = J.estimate_minutes(p["tiers"][tier], p["finishing"], chunks, finishing, seeds, engine, tier)
     note = p["tiers"][tier].get("note", "")
     if engine == "scail":
-        note = "SCAIL-2 at 512×896 or 896×512 by video orientation, 6 steps. Identity hold does not apply."
+        note = ("SCAIL-2 High: no distill LoRA, 16 guided steps, about 5x the Standard time, less plastic skin and cloth."
+                if tier == "High" else "SCAIL-2 at 512×896 or 896×512 by video orientation, 6 steps. Identity hold does not apply.")
     return {"minutes": round(minutes, 1), "usd": round(minutes / 60 * J.GPU_HOURLY_USD, 2), "currency": "gpu", "note": note}
 
 

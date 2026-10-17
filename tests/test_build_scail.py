@@ -63,7 +63,7 @@ class ScailBuildTests(unittest.TestCase):
         wf = S.build(distill=False, width=900, height=500, finishing=True)
         t = S.by_title(wf)
         self.assertNotIn("Distill LoRA", t)
-        self.assertEqual(wf[t["Scheduler"]]["inputs"]["steps"], 40)
+        self.assertEqual(wf[t["Scheduler"]]["inputs"]["steps"], S.HIGH_STEPS)
         self.assertEqual(wf[t["Sampler"]]["inputs"]["cfg"], 5.0)
         self.assertEqual(wf[t["Shift"]]["inputs"]["model"], [t["DPO LoRA"], 0])
         self.assertEqual((wf[t["Resize Driving"]]["inputs"]["resize_type.width"], wf[t["Resize Driving"]]["inputs"]["resize_type.height"]), (896, 480))

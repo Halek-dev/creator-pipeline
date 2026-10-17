@@ -46,7 +46,13 @@ def snap32(v):
     return max(32, (int(v) // 32) * 32)
 
 
-def build(segments=1, width=512, height=896, distill=True, replace=True, finishing=False):
+HIGH_STEPS, HIGH_CFG = 16, 3.5   # no distill LoRA: about 5x the Standard render time, more texture, less plastic
+NEUTRAL_GREY = 0x808080
+
+
+def build(segments=1, width=512, height=896, distill=True, replace=True, finishing=False, clean_reference=True, steps=None, cfg=None):
+    """clean_reference: cut the character out of the reference image (SAM mask, feathered) onto neutral grey before the
+    model and CLIP vision see it, so a busy background behind the character cannot leak into the result."""
     width, height = snap32(width), snap32(height)
     wf = {}
     # models
@@ -54,9 +60,9 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
     dpo = add(wf, "LoraLoaderModelOnly", "DPO LoRA", {"model": [model, 0], "lora_name": DPO_LORA, "strength_model": 1.0})
     if distill:
         top = add(wf, "LoraLoaderModelOnly", "Distill LoRA", {"model": [dpo, 0], "lora_name": DISTILL_LORA, "strength_model": 0.8})
-        steps, cfg = 6, 1.0
+        steps, cfg = steps or 6, cfg or 1.0
     else:
-        top, steps, cfg = dpo, 40, 5.0
+        top, steps, cfg = dpo, steps or HIGH_STEPS, cfg or HIGH_CFG
     shift = add(wf, "ModelSamplingSD3", "Shift", {"model": [top, 0], "shift": 5})
     clip = add(wf, "CLIPLoader", "Text Encoder", {"clip_name": TEXT_ENCODER, "type": "wan"})
     pos = add(wf, "CLIPTextEncode", "Character Prompt", {"clip": [clip, 0], "text": "A young woman with dark hair in a high bun, black crop top and wide cargo pants, dancing in front of a graffiti wall in daylight."})
@@ -70,8 +76,17 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
     ref = add(wf, "LoadImage", "Reference Image", {"image": "reference_streetwear_character.png"})
     vid = add(wf, "LoadVideo", "Driving Video", {"file": "street_dancer.mp4"})
     frames = add(wf, "GetVideoComponents", "Driving Frames", {"video": [vid, 0]})
-    enc_ref = add(wf, "CLIPVisionEncode", "Encode Reference", {"clip_vision": [clipv, 0], "image": [ref, 0], "crop": "none"})
     ref_track = add(wf, "SAM3_VideoTrack", "SAM Reference Track", {"images": [ref, 0], "model": [sam, 0], "conditioning": [sam_ref_text, 0], "detection_threshold": 0.5, "max_objects": 4, "detect_interval": 1})
+    ref_in = [ref, 0]
+    if clean_reference:
+        ref_mask = add(wf, "SAM3_TrackToMask", "Reference Mask", {"track_data": [ref_track, 0], "object_indices": ""})
+        grown = add(wf, "GrowMask", "Reference Mask Grow", {"mask": [ref_mask, 0], "expand": 6, "tapered_corners": True})
+        soft = add(wf, "FeatherMask", "Reference Mask Feather", {"mask": [grown, 0], "left": 6, "top": 6, "right": 6, "bottom": 6})
+        ref_size = add(wf, "GetImageSize", "Reference Size", {"image": [ref, 0]})
+        canvas = add(wf, "EmptyImage", "Neutral Canvas", {"width": [ref_size, 0], "height": [ref_size, 1], "batch_size": 1, "color": NEUTRAL_GREY})
+        cut = add(wf, "ImageCompositeMasked", "Reference Cutout", {"destination": [canvas, 0], "source": [ref, 0], "x": 0, "y": 0, "resize_source": False, "mask": [soft, 0]})
+        ref_in = [cut, 0]
+    enc_ref = add(wf, "CLIPVisionEncode", "Encode Reference", {"clip_vision": [clipv, 0], "image": ref_in, "crop": "none"})
     scheduler_model = [top, 0]
 
     pieces, prev_decode, prev_resized = [], None, None
@@ -87,7 +102,7 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
             "width": [size, 0], "height": [size, 1], "length": [size, 2], "batch_size": 1,
             "pose_strength": 1.0, "pose_start": 0.0, "pose_end": 1.0, "video_frame_offset": 0, "previous_frame_count": OVERLAP,
             "pose_video": [resized, 0], "pose_video_mask": [masks, 0], "replacement_mode": replace,
-            "reference_image": [ref, 0], "reference_image_mask": [masks, 1], "clip_vision_output": [enc_ref, 0],
+            "reference_image": ref_in, "reference_image_mask": [masks, 1], "clip_vision_output": [enc_ref, 0],
         }
         if prev_decode is not None:
             animate_inputs["previous_frames"] = [prev_decode, 0]

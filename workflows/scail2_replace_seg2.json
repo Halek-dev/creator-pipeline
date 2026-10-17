@@ -170,23 +170,6 @@
     }
   },
   "16": {
-    "class_type": "CLIPVisionEncode",
-    "_meta": {
-      "title": "Encode Reference"
-    },
-    "inputs": {
-      "clip_vision": [
-        "8",
-        0
-      ],
-      "image": [
-        "13",
-        0
-      ],
-      "crop": "none"
-    }
-  },
-  "17": {
     "class_type": "SAM3_VideoTrack",
     "_meta": {
       "title": "SAM Reference Track"
@@ -209,7 +192,120 @@
       "detect_interval": 1
     }
   },
+  "17": {
+    "class_type": "SAM3_TrackToMask",
+    "_meta": {
+      "title": "Reference Mask"
+    },
+    "inputs": {
+      "track_data": [
+        "16",
+        0
+      ],
+      "object_indices": ""
+    }
+  },
   "18": {
+    "class_type": "GrowMask",
+    "_meta": {
+      "title": "Reference Mask Grow"
+    },
+    "inputs": {
+      "mask": [
+        "17",
+        0
+      ],
+      "expand": 6,
+      "tapered_corners": true
+    }
+  },
+  "19": {
+    "class_type": "FeatherMask",
+    "_meta": {
+      "title": "Reference Mask Feather"
+    },
+    "inputs": {
+      "mask": [
+        "18",
+        0
+      ],
+      "left": 6,
+      "top": 6,
+      "right": 6,
+      "bottom": 6
+    }
+  },
+  "20": {
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Reference Size"
+    },
+    "inputs": {
+      "image": [
+        "13",
+        0
+      ]
+    }
+  },
+  "21": {
+    "class_type": "EmptyImage",
+    "_meta": {
+      "title": "Neutral Canvas"
+    },
+    "inputs": {
+      "width": [
+        "20",
+        0
+      ],
+      "height": [
+        "20",
+        1
+      ],
+      "batch_size": 1,
+      "color": 8421504
+    }
+  },
+  "22": {
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Reference Cutout"
+    },
+    "inputs": {
+      "destination": [
+        "21",
+        0
+      ],
+      "source": [
+        "13",
+        0
+      ],
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "mask": [
+        "19",
+        0
+      ]
+    }
+  },
+  "23": {
+    "class_type": "CLIPVisionEncode",
+    "_meta": {
+      "title": "Encode Reference"
+    },
+    "inputs": {
+      "clip_vision": [
+        "8",
+        0
+      ],
+      "image": [
+        "22",
+        0
+      ],
+      "crop": "none"
+    }
+  },
+  "24": {
     "class_type": "ImageFromBatch",
     "_meta": {
       "title": "Segment Frames"
@@ -223,14 +319,14 @@
       "length": 81
     }
   },
-  "19": {
+  "25": {
     "class_type": "ResizeImageMaskNode",
     "_meta": {
       "title": "Resize Driving"
     },
     "inputs": {
       "input": [
-        "18",
+        "24",
         0
       ],
       "resize_type": "scale dimensions",
@@ -240,26 +336,26 @@
       "scale_method": "area"
     }
   },
-  "20": {
+  "26": {
     "class_type": "GetImageSize",
     "_meta": {
       "title": "Driving Size"
     },
     "inputs": {
       "image": [
-        "19",
+        "25",
         0
       ]
     }
   },
-  "21": {
+  "27": {
     "class_type": "SAM3_VideoTrack",
     "_meta": {
       "title": "SAM Driving Track"
     },
     "inputs": {
       "images": [
-        "19",
+        "25",
         0
       ],
       "model": [
@@ -275,18 +371,18 @@
       "detect_interval": 1
     }
   },
-  "22": {
+  "28": {
     "class_type": "SCAIL2ColoredMask",
     "_meta": {
       "title": "Masks"
     },
     "inputs": {
       "driving_track_data": [
-        "21",
+        "27",
         0
       ],
       "ref_track_data": [
-        "17",
+        "16",
         0
       ],
       "object_indices": "",
@@ -294,7 +390,7 @@
       "replacement_mode": true
     }
   },
-  "23": {
+  "29": {
     "class_type": "WanSCAILToVideo",
     "_meta": {
       "title": "Animate"
@@ -313,15 +409,15 @@
         0
       ],
       "width": [
-        "20",
+        "26",
         0
       ],
       "height": [
-        "20",
+        "26",
         1
       ],
       "length": [
-        "20",
+        "26",
         2
       ],
       "batch_size": 1,
@@ -331,29 +427,29 @@
       "video_frame_offset": 0,
       "previous_frame_count": 5,
       "pose_video": [
-        "19",
+        "25",
         0
       ],
       "pose_video_mask": [
-        "22",
+        "28",
         0
       ],
       "replacement_mode": true,
       "reference_image": [
-        "13",
+        "22",
         0
       ],
       "reference_image_mask": [
-        "22",
+        "28",
         1
       ],
       "clip_vision_output": [
-        "16",
+        "23",
         0
       ]
     }
   },
-  "24": {
+  "30": {
     "class_type": "BasicScheduler",
     "_meta": {
       "title": "Scheduler"
@@ -368,7 +464,7 @@
       "denoise": 1.0
     }
   },
-  "25": {
+  "31": {
     "class_type": "KSamplerSelect",
     "_meta": {
       "title": "Sampler Type"
@@ -377,7 +473,7 @@
       "sampler_name": "euler"
     }
   },
-  "26": {
+  "32": {
     "class_type": "SamplerCustom",
     "_meta": {
       "title": "Sampler"
@@ -391,35 +487,35 @@
       "noise_seed": 1,
       "cfg": 1.0,
       "positive": [
-        "23",
+        "29",
         0
       ],
       "negative": [
-        "23",
+        "29",
         1
       ],
       "sampler": [
-        "25",
+        "31",
         0
       ],
       "sigmas": [
-        "24",
+        "30",
         0
       ],
       "latent_image": [
-        "23",
+        "29",
         2
       ]
     }
   },
-  "27": {
+  "33": {
     "class_type": "VAEDecode",
     "_meta": {
       "title": "Decode"
     },
     "inputs": {
       "samples": [
-        "26",
+        "32",
         1
       ],
       "vae": [
@@ -428,7 +524,7 @@
       ]
     }
   },
-  "28": {
+  "34": {
     "class_type": "ImageFromBatch",
     "_meta": {
       "title": "Segment Frames 2"
@@ -442,14 +538,14 @@
       "length": 81
     }
   },
-  "29": {
+  "35": {
     "class_type": "ResizeImageMaskNode",
     "_meta": {
       "title": "Resize Driving 2"
     },
     "inputs": {
       "input": [
-        "28",
+        "34",
         0
       ],
       "resize_type": "scale dimensions",
@@ -459,26 +555,26 @@
       "scale_method": "area"
     }
   },
-  "30": {
+  "36": {
     "class_type": "GetImageSize",
     "_meta": {
       "title": "Driving Size 2"
     },
     "inputs": {
       "image": [
-        "29",
+        "35",
         0
       ]
     }
   },
-  "31": {
+  "37": {
     "class_type": "SAM3_VideoTrack",
     "_meta": {
       "title": "SAM Driving Track 2"
     },
     "inputs": {
       "images": [
-        "29",
+        "35",
         0
       ],
       "model": [
@@ -494,18 +590,18 @@
       "detect_interval": 1
     }
   },
-  "32": {
+  "38": {
     "class_type": "SCAIL2ColoredMask",
     "_meta": {
       "title": "Masks 2"
     },
     "inputs": {
       "driving_track_data": [
-        "31",
+        "37",
         0
       ],
       "ref_track_data": [
-        "17",
+        "16",
         0
       ],
       "object_indices": "",
@@ -513,7 +609,7 @@
       "replacement_mode": true
     }
   },
-  "33": {
+  "39": {
     "class_type": "WanSCAILToVideo",
     "_meta": {
       "title": "Animate 2"
@@ -532,15 +628,15 @@
         0
       ],
       "width": [
-        "30",
+        "36",
         0
       ],
       "height": [
-        "30",
+        "36",
         1
       ],
       "length": [
-        "30",
+        "36",
         2
       ],
       "batch_size": 1,
@@ -550,33 +646,33 @@
       "video_frame_offset": 0,
       "previous_frame_count": 5,
       "pose_video": [
-        "29",
+        "35",
         0
       ],
       "pose_video_mask": [
-        "32",
+        "38",
         0
       ],
       "replacement_mode": true,
       "reference_image": [
-        "13",
+        "22",
         0
       ],
       "reference_image_mask": [
-        "32",
+        "38",
         1
       ],
       "clip_vision_output": [
-        "16",
+        "23",
         0
       ],
       "previous_frames": [
-        "27",
+        "33",
         0
       ]
     }
   },
-  "34": {
+  "40": {
     "class_type": "BasicScheduler",
     "_meta": {
       "title": "Scheduler 2"
@@ -591,7 +687,7 @@
       "denoise": 1.0
     }
   },
-  "35": {
+  "41": {
     "class_type": "KSamplerSelect",
     "_meta": {
       "title": "Sampler Type 2"
@@ -600,7 +696,7 @@
       "sampler_name": "euler"
     }
   },
-  "36": {
+  "42": {
     "class_type": "SamplerCustom",
     "_meta": {
       "title": "Sampler 2"
@@ -614,35 +710,35 @@
       "noise_seed": 1,
       "cfg": 1.0,
       "positive": [
-        "33",
+        "39",
         0
       ],
       "negative": [
-        "33",
+        "39",
         1
       ],
       "sampler": [
-        "35",
+        "41",
         0
       ],
       "sigmas": [
-        "34",
+        "40",
         0
       ],
       "latent_image": [
-        "33",
+        "39",
         2
       ]
     }
   },
-  "37": {
+  "43": {
     "class_type": "VAEDecode",
     "_meta": {
       "title": "Decode 2"
     },
     "inputs": {
       "samples": [
-        "36",
+        "42",
         1
       ],
       "vae": [
@@ -651,46 +747,46 @@
       ]
     }
   },
-  "38": {
+  "44": {
     "class_type": "ImageFromBatch",
     "_meta": {
       "title": "Drop Overlap 2"
     },
     "inputs": {
       "image": [
-        "37",
+        "43",
         0
       ],
       "batch_index": 5,
       "length": 4096
     }
   },
-  "39": {
+  "45": {
     "class_type": "ImageFromBatch",
     "_meta": {
       "title": "Previous Last Frame 2"
     },
     "inputs": {
       "image": [
-        "27",
+        "33",
         0
       ],
       "batch_index": -1,
       "length": 1
     }
   },
-  "40": {
+  "46": {
     "class_type": "ColorTransfer",
     "_meta": {
       "title": "Color Match 2"
     },
     "inputs": {
       "image_target": [
-        "38",
+        "44",
         0
       ],
       "image_ref": [
-        "39",
+        "45",
         0
       ],
       "method": "reinhard_lab",
@@ -698,44 +794,44 @@
       "strength": 1.0
     }
   },
-  "41": {
+  "47": {
     "class_type": "ImageBatch",
     "_meta": {
       "title": "Join 2"
     },
     "inputs": {
       "image1": [
-        "27",
+        "33",
         0
       ],
       "image2": [
-        "40",
+        "46",
         0
       ]
     }
   },
-  "42": {
+  "48": {
     "class_type": "ImageFromBatch",
     "_meta": {
       "title": "Trim Tail"
     },
     "inputs": {
       "image": [
-        "41",
+        "47",
         0
       ],
       "batch_index": 0,
       "length": 157
     }
   },
-  "43": {
+  "49": {
     "class_type": "CreateVideo",
     "_meta": {
       "title": "Video"
     },
     "inputs": {
       "images": [
-        "42",
+        "48",
         0
       ],
       "fps": [
@@ -748,14 +844,14 @@
       ]
     }
   },
-  "44": {
+  "50": {
     "class_type": "SaveVideo",
     "_meta": {
       "title": "Save"
     },
     "inputs": {
       "video": [
-        "43",
+        "49",
         0
       ],
       "filename_prefix": "motion_swap/scail_result",
@@ -763,7 +859,7 @@
       "format.codec": "h264"
     }
   },
-  "45": {
+  "51": {
     "class_type": "ImageFromBatch",
     "_meta": {
       "title": "Driving Trimmed"
@@ -777,14 +873,14 @@
       "length": 157
     }
   },
-  "46": {
+  "52": {
     "class_type": "ResizeImageMaskNode",
     "_meta": {
       "title": "Resize Driving For Compare"
     },
     "inputs": {
       "input": [
-        "45",
+        "51",
         0
       ],
       "resize_type": "scale dimensions",
@@ -794,18 +890,18 @@
       "scale_method": "area"
     }
   },
-  "47": {
+  "53": {
     "class_type": "ImageStitch",
     "_meta": {
       "title": "Compare"
     },
     "inputs": {
       "image1": [
-        "42",
+        "48",
         0
       ],
       "image2": [
-        "46",
+        "52",
         0
       ],
       "direction": "right",
@@ -814,14 +910,14 @@
       "spacing_color": "white"
     }
   },
-  "48": {
+  "54": {
     "class_type": "CreateVideo",
     "_meta": {
       "title": "Compare Video"
     },
     "inputs": {
       "images": [
-        "47",
+        "53",
         0
       ],
       "fps": [
@@ -830,14 +926,14 @@
       ]
     }
   },
-  "49": {
+  "55": {
     "class_type": "SaveVideo",
     "_meta": {
       "title": "Save Compare"
     },
     "inputs": {
       "video": [
-        "48",
+        "54",
         0
       ],
       "filename_prefix": "motion_swap/scail_compare",

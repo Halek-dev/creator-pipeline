@@ -54,3 +54,9 @@ First live Seedance job through the new front end: streetwear reference + 14 s s
 
 **Result:** identity, outfit and 1080p finish are good; the choreography only loosely follows the driving video and the timing drifts. Cause: we used task type "reference" with a plain description. The node's "edit" mode replaces the person in the uploaded video itself and keeps its length and framing, and Seedance prompts should name the files as @Image1 / @Video1. The app now defaults Seedance to "Swap into the video" (edit) with an @-referenced prompt, offers "New scene from the text" (reference) as the alternative, and uses the cheaper Seedance 2.5 Draft model for the Fast tier. Not yet re-rendered in edit mode (needs a Comfy top-up; a 5 s clip at 720p is about 450 credits).
 
+## 17 Oct 2026, SCAIL-2 first live render (RTX PRO 4500, $0.72/h)
+
+Pod from clone to READY in about 12 minutes including the 20 GB SCAIL-2 download; smoke test green (SCAIL-2, SeedVR2, FILM, all model profiles). First render through the new front end with the login page: user's own pair (waist-up reference, 8.3 s 720x1280 30 fps dance clip), SCAIL-2 Standard, 3 segments, 233 frames, 1 seed. Job 20261016-234423-36bc, about 20 minutes.
+
+Result: motion copied frame for frame with identical timing; face, hair, skin, top and necklace from the reference; the video's studio, lighting and camera kept; hands clean. Flaws: (1) the reference photo's bookshelf leaked into the left edge of the frame (the model and CLIP vision saw the whole reference image); (2) the jeans, which the reference does not show, were invented and look plastic; (3) hair tips lighter, which matches the reference photo. Fixes shipped the same day: reference cut out onto neutral grey via the SAM track (GrowMask + FeatherMask + ImageCompositeMasked) before encoding; SCAIL High tier = no distill LoRA, 16 steps, cfg 3.5; guide now asks for full-body references for full-body videos. Cost of the run about $0.25 of pod time.
+

@@ -163,7 +163,8 @@ def build_scail_workflow(job, seed):
     """SCAIL-2 replacement: the driving video's own orientation decides the frame (512×896 or 896×512)."""
     opts = job["options"]
     width, height = (512, 896) if _portrait(opts) else (896, 512)
-    wf = S.build(segments=opts["chunks"], width=width, height=height, distill=True, replace=True, finishing=opts["finishing"])
+    # High tier: no distill LoRA, 16 steps with guidance; about 5x the Standard time, noticeably less plastic.
+    wf = S.build(segments=opts["chunks"], width=width, height=height, distill=job.get("tier") != "High", replace=True, finishing=opts["finishing"])
     set_input(wf, "Reference Image.image", job["inputs"]["image"])
     set_input(wf, "Driving Video.file", job["inputs"]["video"])
     set_input(wf, "Character Prompt.text", job["prompts"]["character"])
@@ -251,7 +252,8 @@ def render_settings(job):
     engine = job.get("engine", "wan")
     if engine == "scail":
         size = "512×896" if _portrait(opts) else "896×512"
-        return f"SCAIL-2 int8 + DPO + distill LoRA, {size}, 6 steps, motion looseness {s['motion_looseness']} (Identity hold does not apply)"
+        quality = f"no distill, {S.HIGH_STEPS} steps, cfg {S.HIGH_CFG}" if job.get("tier") == "High" else "distill LoRA, 6 steps"
+        return f"SCAIL-2 int8 + DPO, {quality}, {size}, reference cut out on grey, motion looseness {s['motion_looseness']} (Identity hold does not apply)"
     if engine == "seedance":
         mode = opts.get("seedance_mode", "edit")
         return (f"Seedance 2.5{' Draft' if job['tier'] == 'Fast' else ''} at {SEEDANCE_RESOLUTION.get(job['tier'], '720p')}, "
@@ -268,8 +270,14 @@ def stage_input(src, job_id, kind):
     return name
 
 
-def estimate_minutes(tier, finishing_cfg, chunks, finishing, seeds):
-    per_clip = tier["minutes_per_clip"] * chunks + (finishing_cfg["minutes_per_clip"] * chunks if finishing else 0)
+SCAIL_HIGH_FACTOR = 5  # SCAIL-2 High drops the distill LoRA: 16 guided steps instead of 6 unguided, about 5x the time
+
+
+def estimate_minutes(tier, finishing_cfg, chunks, finishing, seeds, engine="wan", tier_name=None):
+    minutes = tier["minutes_per_clip"]
+    if engine == "scail" and (tier_name or tier.get("name")) == "High":
+        minutes = minutes * SCAIL_HIGH_FACTOR / 1.5  # relative to the Standard 6 min, not the Wan High 9 min
+    per_clip = minutes * chunks + (finishing_cfg["minutes_per_clip"] * chunks if finishing else 0)
     return per_clip * seeds
 
 
@@ -314,7 +322,7 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
         seconds = (info.get("frames") or 120) / float(info.get("fps") or 24)
         minutes, credits, usd, _ = seedance_credits(presets, tier_name, seconds, seeds, seedance_mode)
     else:
-        minutes = estimate_minutes(tier, presets["finishing"], chunks, finishing, seeds)
+        minutes = estimate_minutes(tier, presets["finishing"], chunks, finishing, seeds, engine, tier_name)
         usd = round(minutes / 60 * GPU_HOURLY_USD, 2)
     job = {
         "id": job_id,
