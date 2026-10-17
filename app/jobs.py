@@ -253,7 +253,7 @@ def render_settings(job):
     if engine == "scail":
         size = "512×896" if _portrait(opts) else "896×512"
         quality = f"no distill, {S.HIGH_STEPS} steps, cfg {S.HIGH_CFG}" if job.get("tier") == "High" else "distill LoRA, 6 steps"
-        return f"SCAIL-2 int8 + DPO, {quality}, {size}, reference cut out on grey, motion looseness {s['motion_looseness']} (Identity hold does not apply)"
+        return f"SCAIL-2 int8 + DPO, {quality}, {size}, one identity (largest person), motion looseness {s['motion_looseness']} (Identity hold does not apply)"
     if engine == "seedance":
         mode = opts.get("seedance_mode", "edit")
         return (f"Seedance 2.5{' Draft' if job['tier'] == 'Fast' else ''} at {SEEDANCE_RESOLUTION.get(job['tier'], '720p')}, "

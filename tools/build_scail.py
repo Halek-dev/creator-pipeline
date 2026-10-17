@@ -50,9 +50,12 @@ HIGH_STEPS, HIGH_CFG = 16, 3.5   # no distill LoRA: about 5x the Standard render
 NEUTRAL_GREY = 0x808080
 
 
-def build(segments=1, width=512, height=896, distill=True, replace=True, finishing=False, clean_reference=True, steps=None, cfg=None):
-    """clean_reference: cut the character out of the reference image (SAM mask, feathered) onto neutral grey before the
-    model and CLIP vision see it, so a busy background behind the character cannot leak into the result."""
+def build(segments=1, width=512, height=896, distill=True, replace=True, finishing=False, clean_reference=False, steps=None, cfg=None, identities="0"):
+    """identities: which tracked people to swap, by size ("0" = only the biggest person in the reference and in the
+    video). The reference tracker also detects dolls, posters and figurines as "human"; with all identities enabled the
+    model composites every one of them into the clip (seen with a bookshelf of figurines, 17 Oct 2026).
+    clean_reference: cut the character out onto neutral grey before encoding. Off by default: the feathered edge shows
+    as a grey rim around hair, and it does not fix figurine leaks (those are identities, not pixels)."""
     width, height = snap32(width), snap32(height)
     wf = {}
     # models
@@ -79,7 +82,7 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
     ref_track = add(wf, "SAM3_VideoTrack", "SAM Reference Track", {"images": [ref, 0], "model": [sam, 0], "conditioning": [sam_ref_text, 0], "detection_threshold": 0.5, "max_objects": 4, "detect_interval": 1})
     ref_in = [ref, 0]
     if clean_reference:
-        ref_mask = add(wf, "SAM3_TrackToMask", "Reference Mask", {"track_data": [ref_track, 0], "object_indices": ""})
+        ref_mask = add(wf, "SAM3_TrackToMask", "Reference Mask", {"track_data": [ref_track, 0], "object_indices": identities})
         grown = add(wf, "GrowMask", "Reference Mask Grow", {"mask": [ref_mask, 0], "expand": 6, "tapered_corners": True})
         soft = add(wf, "FeatherMask", "Reference Mask Feather", {"mask": [grown, 0], "left": 6, "top": 6, "right": 6, "bottom": 6})
         ref_size = add(wf, "GetImageSize", "Reference Size", {"image": [ref, 0]})
@@ -96,7 +99,7 @@ def build(segments=1, width=512, height=896, distill=True, replace=True, finishi
         resized = add(wf, "ResizeImageMaskNode", f"Resize Driving{sfx}", {"input": [seg, 0], "resize_type": "scale dimensions", "resize_type.width": width, "resize_type.height": height, "resize_type.crop": "center", "scale_method": "area"})
         size = add(wf, "GetImageSize", f"Driving Size{sfx}", {"image": [resized, 0]})
         drive_track = add(wf, "SAM3_VideoTrack", f"SAM Driving Track{sfx}", {"images": [resized, 0], "model": [sam, 0], "conditioning": [sam_drive_text, 0], "detection_threshold": 0.5, "max_objects": 4, "detect_interval": 1})
-        masks = add(wf, "SCAIL2ColoredMask", f"Masks{sfx}", {"driving_track_data": [drive_track, 0], "ref_track_data": [ref_track, 0], "object_indices": "", "sort_by": "left_to_right", "replacement_mode": replace})
+        masks = add(wf, "SCAIL2ColoredMask", f"Masks{sfx}", {"driving_track_data": [drive_track, 0], "ref_track_data": [ref_track, 0], "object_indices": identities, "sort_by": "area", "replacement_mode": replace})
         animate_inputs = {
             "positive": [pos, 0], "negative": [neg, 0], "vae": [vae, 0],
             "width": [size, 0], "height": [size, 1], "length": [size, 2], "batch_size": 1,
