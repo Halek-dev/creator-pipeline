@@ -6,7 +6,7 @@
 <title>Creator Pipeline</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/app.css?v=6">
+<link rel="stylesheet" href="/static/app.css?v=7">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%234c8dff'/%3E%3Cpath d='M9 7l8 5-8 5z' fill='white'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -177,7 +177,7 @@
 <aside class="drawer" id="drawer" hidden aria-label="Clip details">
   <div class="drawer-head">
     <div><b id="d-title"></b><div class="hint" id="d-sub"></div></div>
-    <button class="icon" id="d-close" aria-label="Close">×</button>
+    <div class="d-head-actions"><button class="ghost" id="d-reuse">Use these settings</button><button class="icon" id="d-close" aria-label="Close">×</button></div>
   </div>
   <div class="drawer-body">
     <div class="player"><video id="d-video" controls playsinline preload="metadata"></video></div>
@@ -186,11 +186,10 @@
     <div class="d-section"><div class="lbl">Pick a seed</div><div class="sheets" id="d-sheets"></div></div>
     <div class="d-section"><div class="lbl">Downloads</div><div class="files" id="d-files"></div></div>
     <div class="d-section"><div class="lbl">Settings</div><dl class="kv" id="d-kv"></dl></div>
-    <div class="d-actions"><button class="cta slim" id="d-reuse">Use these settings</button></div>
   </div>
 </aside>
 
 <div class="toast" id="toast"></div>
-<script src="/static/app.js?v=7"></script>
+<script src="/static/app.js?v=8"></script>
 </body>
 </html>
