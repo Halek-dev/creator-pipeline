@@ -386,6 +386,26 @@
     toast("Settings and inputs loaded. Change what you want, then Render.");
   }
 
+  async function connectRunpod(e) {
+    e.preventDefault();
+    const body = { endpoint_id: $("#rp-endpoint").value, api_key: $("#rp-api").value, volume_id: $("#rp-volume").value, s3_key: $("#rp-s3key").value,
+                   s3_secret: $("#rp-s3secret").value, s3_endpoint: $("#rp-s3endpoint").value, gpu_hourly_usd: parseFloat($("#rp-hourly").value) || 1.22 };
+    $("#rp-result").textContent = "Checking the endpoint and the volume";
+    try {
+      const r = await post("/api/runpod", body);
+      ["#rp-api", "#rp-s3key", "#rp-s3secret"].forEach(s => { $(s).value = ""; });
+      const w = (r.health && r.health.workers) || {};
+      $("#rp-status").textContent = "serverless endpoint connected";
+      $("#rp-result").textContent = `Connected. Workers running: ${w.running || 0}, idle: ${w.idle || 0}. Volume answered with ${r.volume_files} job record(s). Renders now go to the endpoint.`;
+      toast("Serverless connected.");
+      poll();
+    } catch (err) { $("#rp-result").textContent = err.message; }
+  }
+  async function disconnectRunpod() {
+    try { await post("/api/runpod/disconnect", {}); $("#rp-status").textContent = "pod backend"; $("#rp-result").textContent = "Renders go to the ComfyUI next to the app again."; poll(); }
+    catch (err) { toast(err.message, true); }
+  }
+
   // ---------- batch and costs ----------
   async function submitBatch(e) {
     e.preventDefault();
@@ -427,6 +447,8 @@
   $$("#filters button").forEach(b => b.addEventListener("click", () => { $$("#filters button").forEach(x => x.classList.remove("on")); b.classList.add("on"); state.filter = b.dataset.f; renderGrid(); }));
   $("#search").addEventListener("input", e => { state.search = e.target.value.trim(); renderGrid(); });
   $("#batch-form").addEventListener("submit", submitBatch);
+  $("#rp-form").addEventListener("submit", connectRunpod);
+  $("#rp-disconnect").addEventListener("click", disconnectRunpod);
   $("#batch-file").addEventListener("change", e => { const n = $("#batch-name"); n.hidden = !e.target.files[0]; n.textContent = e.target.files[0] ? e.target.files[0].name : ""; });
   $$("[data-view]").forEach(a => a.addEventListener("click", () => { /* hashchange handles it */ }));
 

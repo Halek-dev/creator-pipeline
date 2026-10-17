@@ -167,6 +167,23 @@
       <h2>Costs</h2>
       <p id="costs-intro"></p>
       <div class="tablewrap"><table id="costs-table"><thead></thead><tbody></tbody></table></div>
+      <h2 style="margin-top:32px">Serverless</h2>
+      <p>Renders on a RunPod endpoint that bills only while a clip renders. Paste the values from the RunPod console; they stay in this app's memory and are never saved. Status: <b id="rp-status">pod backend</b>.</p>
+      <form id="rp-form" class="stack">
+        <div class="row3">
+          <label>Endpoint id<input class="field" id="rp-endpoint" autocomplete="off" placeholder="mb0p16x9aea9n8"></label>
+          <label>Volume id<input class="field" id="rp-volume" autocomplete="off"></label>
+          <label>GPU price, $ per hour<input class="field" id="rp-hourly" type="number" step="0.01" value="1.22"></label>
+        </div>
+        <div class="row3">
+          <label>API key<input class="field" id="rp-api" type="password" autocomplete="off"></label>
+          <label>S3 access key<input class="field" id="rp-s3key" type="password" autocomplete="off" placeholder="user_..."></label>
+          <label>S3 secret<input class="field" id="rp-s3secret" type="password" autocomplete="off" placeholder="rps_..."></label>
+        </div>
+        <label>S3 endpoint<input class="field" id="rp-s3endpoint" value="https://s3api-eu-ro-1.runpod.io"></label>
+        <div class="d-actions"><button class="cta slim" type="submit">Connect serverless</button><button class="ghost" type="button" id="rp-disconnect">Back to pod</button></div>
+        <div class="hint" id="rp-result"></div>
+      </form>
       <p class="hint">Check the real numbers on RunPod under Billing and on comfy.org under Credits. The pod estimate is a floor, not an invoice.</p>
     </section>
   </main>
@@ -204,6 +221,6 @@
 </aside>
 
 <div class="toast" id="toast"></div>
-<script src="/static/app.js?v=16"></script>
+<script src="/static/app.js?v=17"></script>
 </body>
 </html>

@@ -299,7 +299,7 @@ def bootstrap():
         "tiers": {k: {"note": v.get("note", ""), "minutes_per_clip": v.get("minutes_per_clip"), "width": v.get("width"), "height": v.get("height")} for k, v in p["tiers"].items()},
         "gpu_hourly_usd": J.GPU_HOURLY_USD, "max_seeds": J.MAX_SEEDS, "max_chunks": J.MAX_CHUNKS, "seedance_modes": J.SEEDANCE_MODES,
         "describe_available": D.credentials_available(), "seedance_available": bool(J.COMFY_API_KEY),
-        "auth": bool(APP_PASSWORD), "status": status_info(),
+        "auth": bool(APP_PASSWORD), "status": status_info(), "backend": RUNNER.backend.name,
     }
 
 
@@ -311,6 +311,52 @@ def status():
 class KeysIn(BaseModel):
     comfy_api_key: str | None = None
     anthropic_api_key: str | None = None
+
+
+class RunpodIn(BaseModel):
+    endpoint_id: str
+    api_key: str
+    volume_id: str
+    s3_key: str
+    s3_secret: str
+    s3_endpoint: str = "https://s3api-eu-ro-1.runpod.io"
+    gpu_hourly_usd: float = 1.22
+
+
+@app.post("/api/runpod")
+def connect_runpod(body: RunpodIn):
+    """Serverless from the page: endpoint and volume credentials kept in memory, the Runner switched to the endpoint
+    backend, the volume checked over S3 and the endpoint over /health before saying yes."""
+    from backends import EndpointBackend
+
+    vals = {k: v.strip() for k, v in body.model_dump().items() if isinstance(v, str)}
+    if not all(vals.get(k) for k in ("endpoint_id", "api_key", "volume_id", "s3_key", "s3_secret")):
+        raise HTTPException(400, "All five values are needed.")
+    be = EndpointBackend(vals["endpoint_id"], vals["api_key"])
+    health = be.health()
+    if health is None:
+        raise HTTPException(400, "The endpoint did not answer /health: check the endpoint id and the API key.")
+    os.environ.update(RUNPOD_ENDPOINT_ID=vals["endpoint_id"], RUNPOD_API_KEY=vals["api_key"], RUNPOD_VOLUME_ID=vals["volume_id"],
+                      RUNPOD_S3_KEY=vals["s3_key"], RUNPOD_S3_SECRET=vals["s3_secret"], RUNPOD_S3_ENDPOINT=vals["s3_endpoint"].rstrip("/"))
+    try:
+        n = len(J.ST.listing(f"{J.ST.PREFIX}/output/_jobs/"))
+    except Exception as e:
+        for k in ("RUNPOD_S3_KEY", "RUNPOD_S3_SECRET"):
+            os.environ.pop(k, None)
+        raise HTTPException(400, f"The volume did not answer over S3: {str(e)[:200]}")
+    RUNNER.backend = be
+    J.GPU_HOURLY_USD = float(body.gpu_hourly_usd)
+    _GPU["value"], _GPU["at"] = (f"serverless {vals['endpoint_id']}", 48.0), time.time() + 10**9  # the guard uses the endpoint's largest tier
+    return {"ok": True, "backend": "endpoint", "health": health, "volume_files": n}
+
+
+@app.post("/api/runpod/disconnect")
+def disconnect_runpod():
+    from backends import PodBackend
+
+    RUNNER.backend = PodBackend(J.SERVER)
+    _GPU["value"], _GPU["at"] = (None, None), 0.0
+    return {"ok": True, "backend": "pod"}
 
 
 @app.post("/api/keys")

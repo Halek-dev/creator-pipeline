@@ -146,6 +146,25 @@ class WebApiTests(unittest.TestCase):
         finally:
             S._GPU["value"], S._GPU["at"] = (None, None), 0.0
 
+    def test_runpod_connect_validates_and_switches_backend(self):
+        import backends as BK
+        r = self.client.post("/api/runpod", json={"endpoint_id": "e", "api_key": "", "volume_id": "v", "s3_key": "k", "s3_secret": "s"})
+        self.assertEqual(r.status_code, 400)
+        old_health, old_listing = BK.EndpointBackend.health, J.ST.listing
+        BK.EndpointBackend.health = lambda self: {"workers": {"running": 0, "idle": 0}, "jobs": {}}
+        J.ST.listing = lambda prefix: [("a", 1, None)]
+        try:
+            r = self.client.post("/api/runpod", json={"endpoint_id": "e", "api_key": "k", "volume_id": "v", "s3_key": "k", "s3_secret": "s", "gpu_hourly_usd": 1.22})
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertEqual(S.RUNNER.backend.name, "endpoint")
+            self.assertEqual(self.client.get("/api/status").json()["backend"], "endpoint")
+            self.assertEqual(self.client.post("/api/runpod/disconnect", json={}).json()["backend"], "pod")
+            self.assertEqual(S.RUNNER.backend.name, "pod")
+        finally:
+            BK.EndpointBackend.health, J.ST.listing = old_health, old_listing
+            for k in ("RUNPOD_ENDPOINT_ID", "RUNPOD_API_KEY", "RUNPOD_VOLUME_ID", "RUNPOD_S3_KEY", "RUNPOD_S3_SECRET", "RUNPOD_S3_ENDPOINT"):
+                __import__("os").environ.pop(k, None)
+
     def test_basic_auth_when_password_set(self):
         S.APP_PASSWORD = "pw"
         try:
