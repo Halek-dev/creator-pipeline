@@ -82,3 +82,13 @@ Pod from deploy to READY in about 4 minutes (volume reused; only the 630 MB T2V 
 
 Conclusions: the three research fixes hold on a real render (identity guard, black cut-out, T2V LoRA). The VRAM guard's 28 GiB minimum for SCAIL Standard matches the measured 26.4 GiB; High at 704p runs on 32 GB only with offloading (29.5 GiB peak, so a 48 GB card is the comfortable floor, as GPU_CHOICE.md inferred). High is worth its 2.5x time for the keeper render.
 
+## 17 Oct 2026, swap-region session (RTX PRO 4500, three Standard 2.7 s renders, same pair)
+
+| Job | Region | Result |
+|---|---|---|
+| 20261017-143420-1b43 | whole body (queued by mistake, useful baseline) | same as v3 standard: clean identity, invented jeans |
+| 20261017-143646-99e3 | face, hair, skin only (head/hair/arm/hand SAM tracks, rest of the person marked environment) | FAILED as a concept: identity transferred (face, hair, bracelet) but the un-swapped body was regenerated, not kept: ripped shorts instead of the jeans and an invented black floral cape behind her. SCAIL-2 regenerates "environment" from context rather than copying pixels, and it was trained on whole-person masks. Option removed from the app; builder keeps identity_only for research |
+| 20261017-144030-f899 | upper body, waist line 60 % | rendered after the pod's watchdog window; the result is on the volume and has not been inspected yet |
+
+Lesson: with SCAIL-2, keeping real pixels of the person (outfit, jeans) is not a mask setting; it needs compositing the video back over the result after the fact (a planned post step: SAM mask of the kept region, feathered blend). Whole body at High with the extra full-body view remains the production path.
+

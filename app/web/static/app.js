@@ -90,10 +90,9 @@
     $("#views").hidden = state.engine !== "scail";
     if (state.engine === "scail" && !$("#seg-region").children.length) {
       state.region = state.region || "whole";
-      seg($("#seg-region"), [{ value: "whole", label: "Whole body" }, { value: "upper", label: "Upper body" }, { value: "identity", label: "Face, hair, skin" }], state.region, v => {
+      seg($("#seg-region"), [{ value: "whole", label: "Whole body" }, { value: "upper", label: "Upper body" }], state.region, v => {
         state.region = v; $("#region-split-row").hidden = v !== "upper";
-        $("#region-hint").textContent = v === "identity" ? "Experimental: the video's outfit and body stay as filmed; only head, hair, arms and hands are regenerated from the reference. Body shape follows the dancer."
-          : v === "upper" ? "Head and torso are swapped; the video's real jeans, shoes and floor stay as filmed below the waist line."
+        $("#region-hint").textContent = v === "upper" ? "Head and torso are swapped; below the waist line the model is told the person is environment. Experimental: SCAIL-2 regenerates environment too, so check the jeans survive."
           : "Everything about the person is regenerated from the reference.";
       });
     }

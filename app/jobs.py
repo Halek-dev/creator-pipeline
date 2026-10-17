@@ -430,7 +430,7 @@ def new_job(image_path, video_path, character_name, appearance, scene_name, scen
         "options": {"chunks": chunks, "finishing": bool(finishing), "frames": info.get("frames"), "fps": info.get("fps"),
                     "video_w": info.get("video_w"), "video_h": info.get("video_h"),
                     **({"seedance_mode": seedance_mode if seedance_mode in SEEDANCE_MODES else "edit"} if engine == "seedance" else {}),
-                    **({"swap_below": max(0.3, min(1.0, float(swap_below))), "swap_region": swap_region if swap_region in ("whole", "upper", "identity") else "whole"} if engine == "scail" else {})},
+                    **({"swap_below": max(0.3, min(1.0, float(swap_below))), "swap_region": swap_region if swap_region in ("whole", "upper") else "whole"} if engine == "scail" else {})},
         "settings": {"identity_hold": float(scene.get("identity_hold", 1.0)), "motion_looseness": float(scene.get("motion_looseness", 1.0))},
         "inputs": {"image": stage_input(image_path, job_id, "ref"), "video": stage_input(video_path, job_id, "drive")},
         "prompts": {"character": character_prompt, "motion": motion_prompt, "negative": presets["negative_prompt"]},
