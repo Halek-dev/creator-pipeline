@@ -104,8 +104,8 @@ async def login(request: Request):
 
 @app.get("/healthz")
 def healthz():
-    """Unauthenticated liveness check for the hosting platform."""
-    return {"ok": True, "backend": RUNNER.backend.name}
+    """Unauthenticated liveness check for the hosting platform, plus the queue state (job ids only, nothing private)."""
+    return {"ok": True, "backend": RUNNER.backend.name, "busy": RUNNER.current is not None, "current": RUNNER.current, "pending": RUNNER.pending.qsize()}
 
 
 @app.get("/login")
